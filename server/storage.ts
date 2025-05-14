@@ -311,7 +311,7 @@ async function seedInitialData() {
   try {
     const taskCount = await db.select({ count: count() }).from(tasks);
     
-    if (taskCount[0].count === 0) {
+    if (Number(taskCount[0].count) === 0) {
       // Add some sample tasks
       await db.insert(tasks).values([
         {
@@ -322,8 +322,9 @@ async function seedInitialData() {
           priority: "medium",
           estimatedTime: 45,
           mode: "build",
-          createdAt: new Date(),
-          lastUpdated: new Date()
+          lastUpdated: new Date(),
+          isAiGenerated: false,
+          friction: 0
         },
         {
           userId: null,
@@ -333,8 +334,9 @@ async function seedInitialData() {
           priority: "high",
           estimatedTime: 20,
           mode: "build",
-          createdAt: new Date(),
-          lastUpdated: new Date()
+          lastUpdated: new Date(),
+          isAiGenerated: false,
+          friction: 0
         }
       ]);
       
@@ -344,21 +346,42 @@ async function seedInitialData() {
           userId: null,
           role: "user",
           content: "Help me prioritize my tasks for the morning",
-          timestamp: new Date()
+          contextMode: "build",
+          contextMood: "motivated",
+          contextEnergy: 70
         },
         {
           userId: null,
           role: "assistant",
           content: "Absolutely!",
-          timestamp: new Date()
+          contextMode: "build",
+          contextMood: "motivated",
+          contextEnergy: 70
         },
         {
           userId: null,
           role: "assistant", 
           content: "What is the most important task you'd like to tackle?",
-          timestamp: new Date()
+          contextMode: "build",
+          contextMood: "motivated",
+          contextEnergy: 70
         }
       ]);
+
+      // Add default user if none exists
+      const userCount = await db.select({ count: count() }).from(users);
+      if (Number(userCount[0].count) === 0) {
+        await db.insert(users).values({
+          username: "default_user",
+          password: "password123", // In a real app, this would be hashed
+          currentMode: "build",
+          currentMood: "motivated",
+          currentEnergy: 70,
+          focusStreak: [true, true, false, true, false],
+          preferences: {},
+          lastActive: new Date()
+        });
+      }
     }
   } catch (error) {
     console.error("Error seeding initial data:", error);

@@ -1,8 +1,18 @@
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Check, Clock } from "lucide-react";
-import { cn, formatDueDate, Task } from "@/lib/utils";
+import { Check, Clock, MoreHorizontal, Tag, Cpu, RefreshCcw, Zap } from "lucide-react";
+import { cn, formatDueDate, Task, Mode } from "@/lib/utils";
 import { motion } from "framer-motion";
+import { Badge } from "@/components/ui/badge";
+import { 
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger
+} from "@/components/ui/dropdown-menu";
+import { useOrbit } from "@/context/orbit-context";
 
 interface TaskCardProps {
   task: Task;
@@ -10,6 +20,8 @@ interface TaskCardProps {
 }
 
 export function TaskCard({ task, onStatusChange }: TaskCardProps) {
+  const { sendMessage } = useOrbit();
+  
   const priorityColors = {
     low: "bg-blue-500/10 text-blue-400 border-blue-500/20",
     medium: "bg-yellow-500/10 text-yellow-400 border-yellow-500/20",
@@ -17,9 +29,43 @@ export function TaskCard({ task, onStatusChange }: TaskCardProps) {
   };
 
   const priorityLabel = {
-    low: "Low priority",
-    medium: "Medium priority",
-    high: "High priority"
+    low: "Low",
+    medium: "Medium",
+    high: "High"
+  };
+  
+  const modeColors: Record<Mode, string> = {
+    build: "bg-[#9F7AEA]/10 text-[#9F7AEA] border-[#9F7AEA]/20",
+    maintain: "bg-[#76E4F7]/10 text-[#76E4F7] border-[#76E4F7]/20",
+    recover: "bg-[#FC8181]/10 text-[#FC8181] border-[#FC8181]/20",
+    reflect: "bg-[#76E4F7]/10 text-[#76E4F7] border-[#76E4F7]/20"
+  };
+  
+  const handleReframeTask = () => {
+    sendMessage(`Reframe task: ${task.title}`);
+  };
+  
+  const getFrictionIndicator = () => {
+    if (!task.friction) return null;
+    
+    let frictionText = "";
+    let frictionColor = "";
+    
+    if (task.friction >= 3) {
+      frictionText = "High friction";
+      frictionColor = "bg-red-500/10 text-red-400 border-red-500/20";
+    } else if (task.friction >= 1) {
+      frictionText = "Some friction";
+      frictionColor = "bg-yellow-500/10 text-yellow-400 border-yellow-500/20";
+    } else {
+      return null;
+    }
+    
+    return (
+      <Badge variant="outline" className={cn("text-xs mr-2", frictionColor)}>
+        {frictionText}
+      </Badge>
+    );
   };
 
   return (
@@ -28,13 +74,76 @@ export function TaskCard({ task, onStatusChange }: TaskCardProps) {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
     >
-      <Card className="p-4 mb-4 hover:translate-x-1">
-        <h3 className="font-medium text-primary mb-1">{task.title}</h3>
-        <p className="text-sm text-secondary mb-3">
-          {task.estimatedTime ? `Est. time: ${task.estimatedTime} mins` : ""}
-          {task.dueDate && task.estimatedTime ? " · " : ""}
-          {task.dueDate ? formatDueDate(task.dueDate) : ""}
-        </p>
+      <Card className={`p-4 mb-4 hover:translate-x-1 border-l-2 ${task.mode ? modeColors[task.mode as Mode].split(' ')[1] : ''}`}>
+        <div className="flex justify-between items-start mb-2">
+          <h3 className="font-medium text-primary">{task.title}</h3>
+          <div className="flex items-center">
+            {task.isAiGenerated && (
+              <Badge variant="outline" className="bg-[#9F7AEA]/10 text-[#9F7AEA] text-xs mr-2 flex gap-1 items-center">
+                <Cpu className="h-3 w-3" />
+                <span>AI</span>
+              </Badge>
+            )}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8">
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuLabel>Task Options</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleReframeTask}>
+                  <RefreshCcw className="mr-2 h-4 w-4" />
+                  <span>Reframe Task</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onStatusChange(task.id, "done")}>
+                  <Check className="mr-2 h-4 w-4" />
+                  <span>Mark as Done</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onStatusChange(task.id, "snoozed")}>
+                  <Clock className="mr-2 h-4 w-4" />
+                  <span>Snooze</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </div>
+        
+        <div className="flex flex-wrap gap-2 mb-3">
+          <Badge variant="outline" className={cn("text-xs", priorityColors[task.priority])}>
+            {priorityLabel[task.priority]}
+          </Badge>
+          
+          {task.estimatedTime && (
+            <Badge variant="outline" className="text-xs">
+              <Clock className="h-3 w-3 mr-1" />
+              {task.estimatedTime} min
+            </Badge>
+          )}
+          
+          {task.mode && (
+            <Badge className={cn("text-xs", modeColors[task.mode as Mode])}>
+              <Zap className="h-3 w-3 mr-1" />
+              {task.mode}
+            </Badge>
+          )}
+          
+          {getFrictionIndicator()}
+          
+          {task.tags && task.tags.length > 0 && task.tags.map((tag, idx) => (
+            <Badge key={idx} variant="secondary" className="text-xs">
+              <Tag className="h-3 w-3 mr-1" />
+              {tag}
+            </Badge>
+          ))}
+        </div>
+        
+        {task.dueDate && (
+          <p className="text-xs text-secondary mb-2">
+            Due: {formatDueDate(task.dueDate)}
+          </p>
+        )}
         
         {task.description && (
           <div className="bg-surface/50 rounded-xl p-3 mb-3">
@@ -42,7 +151,26 @@ export function TaskCard({ task, onStatusChange }: TaskCardProps) {
           </div>
         )}
         
-        <div className="flex justify-between">
+        {task.subtasks && task.subtasks.length > 0 && (
+          <div className="mt-3 space-y-1">
+            <p className="text-xs font-medium text-secondary mb-1">Subtasks:</p>
+            {task.subtasks.map((subtask, index) => (
+              <div key={subtask.id} className="flex items-center gap-2 text-sm">
+                <input 
+                  type="checkbox" 
+                  checked={subtask.done}
+                  className="rounded text-primary" 
+                  readOnly
+                />
+                <span className={subtask.done ? "line-through text-secondary" : "text-primary"}>
+                  {subtask.title}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+        
+        <div className="flex justify-between mt-3">
           <div className="flex gap-2">
             <Button 
               size="icon" 
@@ -63,13 +191,15 @@ export function TaskCard({ task, onStatusChange }: TaskCardProps) {
             >
               <Clock className="h-4 w-4" />
             </Button>
+            <Button 
+              size="icon" 
+              variant="ghost"
+              className="p-2 rounded-full bg-purple-500/10 text-purple-400"
+              onClick={handleReframeTask}
+            >
+              <RefreshCcw className="h-4 w-4" />
+            </Button>
           </div>
-          <span className={cn(
-            "text-xs px-3 py-1 rounded-full border",
-            priorityColors[task.priority]
-          )}>
-            {priorityLabel[task.priority]}
-          </span>
         </div>
       </Card>
     </motion.div>
