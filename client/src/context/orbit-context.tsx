@@ -183,6 +183,27 @@ export function OrbitProvider({ children }: OrbitProviderProps) {
       console.error("Error updating task:", error);
     }
   };
+  
+  // Update an entire task
+  const updateTask = async (updatedTask: Task) => {
+    setTasks(prev => 
+      prev.map(task => 
+        task.id === updatedTask.id ? { ...updatedTask, lastUpdated: new Date() } : task
+      )
+    );
+    
+    try {
+      // Strip any client-only fields that might not be in the database schema
+      const { id, ...taskWithoutId } = updatedTask;
+      await apiRequest("PATCH", `/api/tasks/${id}`, { 
+        ...taskWithoutId,
+        lastUpdated: new Date()
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+    } catch (error) {
+      console.error("Error updating full task:", error);
+    }
+  };
 
   // Add a new reflection
   const addReflection = async (reflectionData: Partial<ReflectionEntry>) => {
@@ -279,6 +300,7 @@ export function OrbitProvider({ children }: OrbitProviderProps) {
     tasks,
     addTask,
     updateTaskStatus,
+    updateTask,
     reflections,
     addReflection,
     messages,
