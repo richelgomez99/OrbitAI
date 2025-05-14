@@ -10,26 +10,45 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
  */
 export async function generateTaskBreakdown(taskTitle: string): Promise<string[]> {
   try {
+    // Check if API key exists
+    if (!process.env.OPENAI_API_KEY) {
+      console.warn('OpenAI API key not found. Using fallback subtasks.');
+      return [
+        "Research and gather requirements",
+        "Create initial draft or outline",
+        "Review and refine content",
+        "Finalize and deliver"
+      ];
+    }
+    
     const response = await openai.chat.completions.create({
       model: "gpt-4o", // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
       messages: [
         {
           role: "system",
-          content: `You are an emotionally intelligent productivity assistant that helps break down complex tasks into smaller, actionable subtasks.
+          content: `You are an emotionally intelligent productivity assistant that specializes in breaking down complex tasks into smaller, actionable subtasks.
 
-Key principles:
-1. Create 3-5 clear, specific, and realistic subtasks
-2. Order subtasks from easiest/quickest to most challenging (to build momentum)
-3. Each subtask should feel achievable in a single work session
-4. Use encouraging, empowering language
-5. Focus on progress, not perfection
-6. Include one "quick win" subtask that can be completed in under 10 minutes
+Your task is to analyze the provided task title and create a set of clear, specific subtasks that will help the user make progress.
 
-Your response should be in JSON format with an array of subtasks.`
+Follow these guidelines:
+1. Create 4-6 specific, actionable subtasks directly related to the main task
+2. Start with an easy "quick win" subtask that can be completed in under 10 minutes
+3. Order subtasks from easiest/quickest to most complex/time-consuming
+4. Each subtask should feel achievable in a single work session
+5. Use simple, direct language without fluff or explanation
+6. Make subtasks concrete and specific - avoid vague language
+7. Adapt the breakdown based on the nature of the task (creative, analytical, etc.)
+8. Each subtask should represent meaningful progress toward the larger goal
+
+Your output must be a JSON array of subtask strings with no other text or explanation.`
         },
         {
           role: "user",
-          content: `Please break down this task into smaller subtasks: "${taskTitle}"`
+          content: `Break down the following task into actionable subtasks, suitable for productivity planning. Keep the subtasks simple, specific, and relevant to the main task:
+
+Task: "${taskTitle}"
+
+Output format should be a JSON object with a "subtasks" array.`
         }
       ],
       response_format: { type: "json_object" }
@@ -43,7 +62,14 @@ Your response should be in JSON format with an array of subtasks.`
     return content.subtasks || [];
   } catch (error) {
     console.error('Error generating task breakdown:', error);
-    throw new Error('Failed to generate task breakdown');
+    // Return default subtasks in case of error
+    return [
+      "Research and gather information",
+      "Create initial plan or outline",
+      "Execute first part of the task",
+      "Review progress and adjust approach",
+      "Complete remaining components"
+    ];
   }
 }
 
