@@ -11,6 +11,7 @@ export type Priority = "low" | "medium" | "high";
 
 export interface Task {
   id: string;
+  userId?: number | null;
   title: string;
   description?: string;
   status: "todo" | "done" | "snoozed";
@@ -19,6 +20,10 @@ export interface Task {
   dueDate?: Date;
   mode?: Mode;
   subtasks?: { id: string; title: string; done: boolean }[];
+  tags?: string[];
+  friction?: number; // Tracks how many times a task has been snoozed
+  lastUpdated?: Date;
+  isAiGenerated?: boolean;
   createdAt: Date;
 }
 

@@ -1,6 +1,7 @@
+import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Check, Clock, MoreHorizontal, Tag, Cpu, RefreshCcw, Zap } from "lucide-react";
+import { Check, Clock, MoreHorizontal, Tag, Cpu, RefreshCcw, Zap, Edit } from "lucide-react";
 import { cn, formatDueDate, Task, Mode } from "@/lib/utils";
 import { motion } from "framer-motion";
 import { Badge } from "@/components/ui/badge";
@@ -13,6 +14,7 @@ import {
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
 import { useOrbit } from "@/context/orbit-context";
+import { EditTaskDialog } from "@/components/edit-task-dialog";
 
 interface TaskCardProps {
   task: Task;
@@ -20,7 +22,8 @@ interface TaskCardProps {
 }
 
 export function TaskCard({ task, onStatusChange }: TaskCardProps) {
-  const { sendMessage } = useOrbit();
+  const { sendMessage, updateTask } = useOrbit();
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   
   const priorityColors = {
     low: "bg-blue-500/10 text-blue-400 border-blue-500/20",
@@ -43,6 +46,15 @@ export function TaskCard({ task, onStatusChange }: TaskCardProps) {
   
   const handleReframeTask = () => {
     sendMessage(`Reframe task: ${task.title}`);
+  };
+  
+  const handleEditTask = () => {
+    setIsEditDialogOpen(true);
+  };
+  
+  const handleSaveTask = (updatedTask: Task) => {
+    updateTask(updatedTask);
+    setIsEditDialogOpen(false);
   };
   
   const getFrictionIndicator = () => {
@@ -74,6 +86,12 @@ export function TaskCard({ task, onStatusChange }: TaskCardProps) {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
     >
+      <EditTaskDialog 
+        task={task} 
+        open={isEditDialogOpen} 
+        onOpenChange={setIsEditDialogOpen}
+        onSave={handleSaveTask}
+      />
       <Card className={`p-4 mb-4 hover:translate-x-1 border-l-2 ${task.mode ? modeColors[task.mode as Mode].split(' ')[1] : ''}`}>
         <div className="flex justify-between items-start mb-2">
           <h3 className="font-medium text-primary">{task.title}</h3>
@@ -93,6 +111,10 @@ export function TaskCard({ task, onStatusChange }: TaskCardProps) {
               <DropdownMenuContent align="end">
                 <DropdownMenuLabel>Task Options</DropdownMenuLabel>
                 <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleEditTask}>
+                  <Edit className="mr-2 h-4 w-4" />
+                  <span>Edit Task</span>
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={handleReframeTask}>
                   <RefreshCcw className="mr-2 h-4 w-4" />
                   <span>Reframe Task</span>

@@ -1,0 +1,139 @@
+
+
+> You are building the emotionally intelligent productivity app Orbit. Now refine the app and complete a fully functional prototype with full AI and UI/UX integration. Use this guide to improve and finalize the experience:
+
+
+
+
+---
+
+Core Objectives
+
+1. Deepen AI contextuality: adapt to mode, mood, energy, and past behavior.
+
+
+2. Improve UI polish, contrast, spacing, and layout (especially on mobile).
+
+
+3. Ensure clean OpenAI integration using environment variables (not hardcoded).
+
+
+4. Centralize all AI logic in a modular helper/service for scaling and reuse.
+
+
+5. Ensure UI components are responsive, accessible, and visually distinct per mode.
+
+
+
+
+---
+
+Prompt Integration
+
+Use the AI Prompts for Orbit document as the master reference. Implement the following AI behaviors and ensure all outputs are:
+
+Hooked into backend via /api routes.
+
+Triggered contextually in Build/Reflect/Recover.
+
+Rendered in a clean structure compatible with the frontend.
+
+Stored or cached per session as needed.
+
+
+AI areas to complete:
+
+Smart task suggestions (generated after task is added)
+
+Chat (task breakdowns, prioritization, focus nudges)
+
+Mood reflections (summarization, trends)
+
+Motivational insights (mode-specific)
+
+Friction detection + nudges (when stuck)
+
+
+
+---
+
+UI/UX Refinements
+
+Bottom Nav
+
+Make sticky across views.
+
+Improve label contrast + font weight.
+
+Highlight active mode (glow or gradient).
+
+Increase touch zone padding.
+
+
+Add Task Modal
+
+Improve visibility of subtasks/input fields.
+
+Smart suggestions appear after submission.
+
+Inputs for: deadline (calendar), priority, subtasks, project tag.
+
+Replace "+" button with clear “Add Subtask” text link.
+
+
+Chat View
+
+Visually differentiate AI vs user messages.
+
+Add message padding + spacing.
+
+Make action buttons sticky/floating.
+
+Auto-scroll on new input/output.
+
+Trim bottom whitespace.
+
+
+Dashboard
+
+Add charts: Tasks by energy, Time spent per mode.
+
+Friction tracker: detect snoozes, stuck tasks, and emotional blocks.
+
+Mood summary: log emojis + short journal entries, trends.
+
+
+Reflect View
+
+Weekly emotion timeline (emoji + sparkline).
+
+Show past reflections and top AI feedback themes.
+
+
+Modes
+
+Build: Energetic purple, quote shown, task focus.
+
+Recover: Calming teal, reframes, light prompts.
+
+Reflect: Deep blue/navy, mood logs and summaries.
+
+
+
+---
+
+Behavioral Fixes
+
+Use secret API key in env setup only.
+
+Fallback if no key: graceful degradation.
+
+Subtasks must be editable, deletable, and taggable (AI/user).
+
+Contextual chat and task responses based on user state.
+
+
+
+---
+
+> Please preserve your current work and refactor where needed for maintainability. The goal is a mobile-first, emotionally intelligent productivity system with thoughtful UX and deeply integrated AI. Make it clean, flexible, and delightful.

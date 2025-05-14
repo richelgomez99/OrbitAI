@@ -30,6 +30,7 @@ interface OrbitContextType {
   tasks: Task[];
   addTask: (task: Partial<Task>) => void;
   updateTaskStatus: (id: string, status: "todo" | "done" | "snoozed") => void;
+  updateTask: (task: Task) => void;
   
   // Reflections
   reflections: ReflectionEntry[];
