@@ -8,7 +8,7 @@ import {
   Plus,
   MessageSquare
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, getModeTheme, type Mode } from "@/lib/utils";
 import { useOrbit } from "@/context/orbit-context";
 import { motion } from "framer-motion";
 
@@ -18,48 +18,8 @@ export function StickyBottomNav() {
   const [showNav, setShowNav] = useState(true);
   const [lastScrollY, setLastScrollY] = useState(0);
 
-  // Get mode-specific colors
-  const getModeColors = () => {
-    switch(mode) {
-      case 'build':
-        return {
-          accent: '#9F7AEA', // Purple
-          accentLight: 'rgba(159, 122, 234, 0.2)',
-          gradient: 'from-purple-500/20 via-purple-600/10 to-purple-800/5',
-          emoji: '⚡️'
-        };
-      case 'maintain':
-        return {
-          accent: '#63B3ED', // Blue
-          accentLight: 'rgba(99, 179, 237, 0.2)',
-          gradient: 'from-blue-400/20 via-blue-500/10 to-blue-600/5',
-          emoji: '🔄'
-        };
-      case 'recover':
-        return {
-          accent: '#B2F5EA', // Teal
-          accentLight: 'rgba(178, 245, 234, 0.2)',
-          gradient: 'from-teal-400/20 via-teal-500/10 to-teal-600/5',
-          emoji: '❤️‍🩹'
-        };
-      case 'reflect':
-        return {
-          accent: '#76E4F7', // Cyan
-          accentLight: 'rgba(118, 228, 247, 0.2)',
-          gradient: 'from-cyan-400/20 via-cyan-500/10 to-cyan-600/5',
-          emoji: '🧠'
-        };
-      default:
-        return {
-          accent: '#9F7AEA', // Purple (default)
-          accentLight: 'rgba(159, 122, 234, 0.2)',
-          gradient: 'from-purple-500/20 via-purple-600/10 to-purple-800/5',
-          emoji: '⚡️'
-        };
-    }
-  };
-
-  const colors = getModeColors();
+  // Get theme for the current mode
+  const theme = getModeTheme(mode);
   
   // Icons and their corresponding routes
   const navItems = [
@@ -103,9 +63,8 @@ export function StickyBottomNav() {
           {/* Add task button (centered) */}
           <div className="absolute left-1/2 -translate-x-1/2 -top-7">
             <motion.button
-              className="w-14 h-14 rounded-full flex items-center justify-center shadow-lg"
-              style={{ backgroundColor: colors.accent }}
-              whileHover={{ scale: 1.05, boxShadow: `0 0 25px ${colors.accentLight}` }}
+              className={`w-14 h-14 rounded-full flex items-center justify-center shadow-lg ${theme.accent}`}
+              whileHover={{ scale: 1.05, boxShadow: `0 0 25px ${theme.accentLightHex}` }}
               whileTap={{ scale: 0.95 }}
               onClick={() => setShowAddTaskModal(true)}
             >
@@ -117,7 +76,9 @@ export function StickyBottomNav() {
           <div className="flex justify-between items-center py-3">
             {navItems.map((item) => {
               const isActive = location === item.route || 
-                             (item.mode && item.mode === mode);
+                            (item.mode && item.mode === mode);
+              
+              const itemTheme = item.mode ? getModeTheme(item.mode as Mode) : theme;
               
               return (
                 <Link key={item.route} href={item.route}>
@@ -126,13 +87,13 @@ export function StickyBottomNav() {
                       className={cn(
                         "flex flex-col items-center transition-colors min-w-[60px]",
                         isActive 
-                          ? `text-[${colors.accent}]` 
+                          ? itemTheme.text 
                           : "text-muted-foreground hover:text-foreground"
                       )}
                     >
                       <div className={cn(
                         "p-2.5 rounded-full transition-all",
-                        isActive && `bg-gradient-to-b ${colors.gradient}`
+                        isActive && `bg-gradient-to-b ${itemTheme.gradient}`
                       )}>
                         {item.icon}
                       </div>
@@ -144,8 +105,7 @@ export function StickyBottomNav() {
                       </span>
                       {isActive && (
                         <motion.div 
-                          className="h-1.5 w-1.5 rounded-full mt-1"
-                          style={{ backgroundColor: colors.accent }}
+                          className={`h-1.5 w-1.5 rounded-full mt-1 ${itemTheme.accent}`}
                           layoutId="navIndicator"
                         />
                       )}

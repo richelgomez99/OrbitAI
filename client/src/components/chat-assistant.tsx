@@ -3,7 +3,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Mic, Send, Brain, RefreshCcw, MessageSquareMore, Clock, Pause } from "lucide-react";
-import { Message, generateId, Mode, Mood } from "@/lib/utils";
+import { Message, generateId, Mode, Mood, getModeTheme, getMoodEmoji, getEnergyDisplay } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { useOrbit } from "@/context/orbit-context";
 import { Badge } from "@/components/ui/badge";
@@ -67,53 +67,10 @@ export function ChatAssistant({ messages, onSendMessage }: ChatAssistantProps) {
     }
   };
   
-  // Get color theme based on current mode
-  const getModeColors = () => {
-    switch(mode) {
-      case 'build':
-        return {
-          accent: 'bg-[#9F7AEA]',
-          accentLight: 'bg-[#9F7AEA]/20',
-          text: 'text-[#9F7AEA]',
-          border: 'border-[#9F7AEA]/40',
-          emoji: '⚡️'
-        };
-      case 'recover':
-        return {
-          accent: 'bg-[#B2F5EA]',
-          accentLight: 'bg-[#B2F5EA]/20',
-          text: 'text-[#B2F5EA]',
-          border: 'border-[#B2F5EA]/40',
-          emoji: '❤️‍🩹'
-        };
-      case 'reflect':
-        return {
-          accent: 'bg-[#76E4F7]',
-          accentLight: 'bg-[#76E4F7]/20',
-          text: 'text-[#76E4F7]',
-          border: 'border-[#76E4F7]/40',
-          emoji: '🧠'
-        };
-      case 'maintain':
-        return {
-          accent: 'bg-[#63B3ED]',
-          accentLight: 'bg-[#63B3ED]/20',
-          text: 'text-[#63B3ED]',
-          border: 'border-[#63B3ED]/40',
-          emoji: '🔄'
-        };
-      default:
-        return {
-          accent: 'bg-[#9F7AEA]',
-          accentLight: 'bg-[#9F7AEA]/20',
-          text: 'text-[#9F7AEA]',
-          border: 'border-[#9F7AEA]/40',
-          emoji: '⚡️'
-        };
-    }
-  };
-  
-  const colors = getModeColors();
+  // Get theme based on current mode
+  const theme = getModeTheme(mode);
+  const moodEmoji = getMoodEmoji(mood);
+  const energyDisplay = getEnergyDisplay(energy);
   const suggestions = getSuggestions();
 
   return (
@@ -121,26 +78,22 @@ export function ChatAssistant({ messages, onSendMessage }: ChatAssistantProps) {
       {/* Context header */}
       <div className="mb-5 flex items-center justify-between">
         <div className="flex flex-wrap gap-2">
-          <Badge className={`${colors.accent} text-white shadow-sm px-3 py-1 text-sm font-medium`}>
-            <span className="mr-1.5">{colors.emoji}</span>
-            {mode.charAt(0).toUpperCase() + mode.slice(1)} Mode
+          <Badge className={`${theme.accent} text-white shadow-sm px-3 py-1 text-sm font-medium`}>
+            <span className="mr-1.5">{theme.emoji}</span>
+            {theme.modeLabel} Mode
           </Badge>
           <Badge 
             variant="outline" 
-            className={`border ${colors.border} ${colors.text} px-3 py-1 text-sm shadow-sm`}
+            className={`border ${theme.border} ${theme.text} px-3 py-1 text-sm shadow-sm`}
           >
-            <span className="mr-1.5">
-              {mood === 'motivated' ? '😊' : mood === 'stressed' ? '😰' : '😌'}
-            </span>
+            <span className="mr-1.5">{moodEmoji}</span>
             {mood.charAt(0).toUpperCase() + mood.slice(1)}
           </Badge>
           <Badge 
             variant="outline" 
-            className={`border ${colors.border} ${energy > 70 ? 'text-green-400' : energy > 30 ? 'text-amber-400' : 'text-red-400'} px-3 py-1 text-sm shadow-sm`}
+            className={`border ${theme.border} ${energyDisplay.color} px-3 py-1 text-sm shadow-sm`}
           >
-            <span className="mr-1.5">
-              {energy > 70 ? '⚡' : energy > 30 ? '⚡' : '🔋'}
-            </span>
+            <span className="mr-1.5">{energyDisplay.icon}</span>
             Energy: {energy}%
           </Badge>
         </div>
@@ -159,14 +112,14 @@ export function ChatAssistant({ messages, onSendMessage }: ChatAssistantProps) {
               transition={{ duration: 0.3 }}
             >
               {msg.role === "assistant" && (
-                <div className={`w-9 h-9 rounded-full ${colors.accentLight} flex items-center justify-center shadow-md`}>
-                  <div className={`w-5 h-5 ${colors.text}`}>{colors.emoji}</div>
+                <div className={`w-9 h-9 rounded-full ${theme.accentLight} flex items-center justify-center shadow-md`}>
+                  <div className={`w-5 h-5 ${theme.text}`}>{theme.emoji}</div>
                 </div>
               )}
               <Card 
                 className={`p-4 max-w-[85%] shadow-md ${
                   msg.role === "assistant" 
-                    ? `rounded-tl-none border-l-2 ${colors.border} ${colors.accentLight} bg-card/90 backdrop-blur-sm`
+                    ? `rounded-tl-none border-l-2 ${theme.border} ${theme.accentLight} bg-card/90 backdrop-blur-sm`
                     : "rounded-tr-none bg-card/70"
                 }`}
               >
