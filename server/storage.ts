@@ -198,4 +198,175 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+// Import required Drizzle ORM functions
+import { db } from "./db";
+import { eq, count } from "drizzle-orm";
+import { 
+  users, tasks, reflections, messages
+} from "@shared/schema";
+
+export class DatabaseStorage implements IStorage {
+  // User methods
+  async getUser(id: number): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user || undefined;
+  }
+
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.username, username));
+    return user || undefined;
+  }
+
+  async createUser(insertUser: InsertUser): Promise<User> {
+    const [user] = await db
+      .insert(users)
+      .values(insertUser)
+      .returning();
+    return user;
+  }
+  
+  // Task methods
+  async getTasks(userId?: number): Promise<Task[]> {
+    if (userId !== undefined) {
+      return db.select().from(tasks).where(eq(tasks.userId, userId));
+    }
+    return db.select().from(tasks);
+  }
+
+  async getTask(id: number): Promise<Task | undefined> {
+    const [task] = await db.select().from(tasks).where(eq(tasks.id, id));
+    return task || undefined;
+  }
+
+  async createTask(task: InsertTask): Promise<Task> {
+    const [newTask] = await db
+      .insert(tasks)
+      .values({
+        ...task,
+        lastUpdated: new Date()
+      })
+      .returning();
+    return newTask;
+  }
+
+  async updateTask(id: number, data: Partial<Task>): Promise<Task | undefined> {
+    const [updatedTask] = await db
+      .update(tasks)
+      .set({
+        ...data,
+        lastUpdated: new Date()
+      })
+      .where(eq(tasks.id, id))
+      .returning();
+    return updatedTask || undefined;
+  }
+
+  async deleteTask(id: number): Promise<boolean> {
+    const result = await db
+      .delete(tasks)
+      .where(eq(tasks.id, id));
+    return result.count > 0;
+  }
+  
+  // Reflection methods
+  async getReflections(userId?: number): Promise<Reflection[]> {
+    if (userId !== undefined) {
+      return db.select().from(reflections).where(eq(reflections.userId, userId));
+    }
+    return db.select().from(reflections);
+  }
+
+  async getReflection(id: number): Promise<Reflection | undefined> {
+    const [reflection] = await db.select().from(reflections).where(eq(reflections.id, id));
+    return reflection || undefined;
+  }
+
+  async createReflection(reflection: InsertReflection): Promise<Reflection> {
+    const [newReflection] = await db
+      .insert(reflections)
+      .values(reflection)
+      .returning();
+    return newReflection;
+  }
+  
+  // Message methods
+  async getMessages(userId?: number): Promise<Message[]> {
+    if (userId !== undefined) {
+      return db.select().from(messages).where(eq(messages.userId, userId));
+    }
+    return db.select().from(messages);
+  }
+
+  async createMessage(message: InsertMessage): Promise<Message> {
+    const [newMessage] = await db
+      .insert(messages)
+      .values(message)
+      .returning();
+    return newMessage;
+  }
+}
+
+// Initialize with sample data on first run
+async function seedInitialData() {
+  try {
+    const taskCount = await db.select({ count: count() }).from(tasks);
+    
+    if (taskCount[0].count === 0) {
+      // Add some sample tasks
+      await db.insert(tasks).values([
+        {
+          userId: null,
+          title: "Create landing page wireframes",
+          description: "Reframe: Break it into homepage, about, and features sections first",
+          status: "todo",
+          priority: "medium",
+          estimatedTime: 45,
+          mode: "build",
+          createdAt: new Date(),
+          lastUpdated: new Date()
+        },
+        {
+          userId: null,
+          title: "Send proposal to client",
+          description: "Reframe: Focus on value proposition instead of feature list",
+          status: "todo",
+          priority: "high",
+          estimatedTime: 20,
+          mode: "build",
+          createdAt: new Date(),
+          lastUpdated: new Date()
+        }
+      ]);
+      
+      // Add some sample messages
+      await db.insert(messages).values([
+        {
+          userId: null,
+          role: "user",
+          content: "Help me prioritize my tasks for the morning",
+          timestamp: new Date()
+        },
+        {
+          userId: null,
+          role: "assistant",
+          content: "Absolutely!",
+          timestamp: new Date()
+        },
+        {
+          userId: null,
+          role: "assistant", 
+          content: "What is the most important task you'd like to tackle?",
+          timestamp: new Date()
+        }
+      ]);
+    }
+  } catch (error) {
+    console.error("Error seeding initial data:", error);
+  }
+}
+
+// Use the DatabaseStorage
+export const storage = new DatabaseStorage();
+
+// Seed initial data
+seedInitialData().catch(console.error);
