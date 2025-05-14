@@ -1,0 +1,121 @@
+
+
+
+
+> You are creating a landing page + authentication flow for the productivity app Orbit, hosted on a single domain. This page will act as both the app’s front door and entry point for new users. Here’s what to build:
+
+
+
+
+---
+
+Core Objective:
+Create a polished landing page that:
+
+Introduces Orbit to new visitors
+
+Lets users register, log in, or continue as guest
+
+Redirects authenticated users to the main app/dashboard
+
+
+
+---
+
+Pages to Create:
+
+1. Landing Page (/)
+
+Headline: “Orbit: Momentum-first productivity for nonlinear minds”
+
+Subheadline: “An emotionally intelligent system that adapts to your mood and energy.”
+
+CTAs:
+
+“Sign Up” → /signup
+
+“Log In” → /login
+
+Optional: “Try as Guest” → /app with a temp session
+
+
+Light animation or visual mood-based preview (basic image carousel is fine)
+
+Responsive layout, mobile-friendly
+
+
+
+2. Signup Page (/signup)
+
+Form fields: Name, Email, Password
+
+Submit should create a new user in local DB or auth provider
+
+Redirect to /app after signup
+
+
+
+3. Login Page (/login)
+
+Email + password input
+
+Password reset (can be a placeholder)
+
+Redirect to /app on successful login
+
+
+
+4. App Router (/app)
+
+Protect this route so only logged-in users or guests can access it
+
+Load Orbit interface from here (can start with placeholder text “Welcome to Orbit”)
+
+
+
+
+
+---
+
+Tech Notes:
+
+Store auth state using cookies or localStorage
+
+Use Replit DB or Supabase for user accounts (or simple mock DB if faster)
+
+Modularize UI for reuse (header, forms, footer)
+
+All UI must be responsive and mobile-first
+
+
+
+---
+
+Design Guidance:
+
+Keep it simple and modern, consistent with Orbit’s dark UI
+
+Use mode colors (purple, teal, blue) as accents
+
+Buttons should be high contrast and tap-friendly
+
+Font choices should match or preview what’s in the app
+
+
+
+---
+
+What NOT to do:
+
+Don’t deploy anything yet
+
+Don’t add pricing or plans
+
+Don’t connect to real payment or email providers
+
+
+
+---
+
+Next Step:
+Once this auth+landing shell is live, you’ll integrate it with the full Orbit app (already under development). This landing page is the entry gate—make it clean, clear, and conversion-friendly.

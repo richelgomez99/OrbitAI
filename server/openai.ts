@@ -216,21 +216,51 @@ Tailor message to their mode:
  */
 export async function generateTaskReframing(
   taskTitle: string,
-  taskDescription?: string
+  taskDescription?: string,
+  mode: string = 'build',
+  mood: string = 'motivated'
 ): Promise<{ title: string; description: string }> {
   try {
+    // Check if API key exists
+    if (!process.env.OPENAI_API_KEY) {
+      console.warn('OpenAI API key not found. Using fallback reframing.');
+      return {
+        title: taskTitle,
+        description: "Start with the smallest first step that will move this forward."
+      };
+    }
+    
     const response = await openai.chat.completions.create({
       model: "gpt-4o", // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
       messages: [
         {
           role: "system",
-          content: "You help reframe tasks to make them more approachable and motivating. Break overwhelming tasks into smaller, actionable steps."
+          content: `You are a productivity coach specialized in reframing tasks to make them more approachable, motivating, and aligned with a user's current emotional state.
+
+Your expertise is in transforming how a task is perceived, breaking down psychological barriers, and creating a clearer path to action.
+
+Follow these guidelines:
+1. Reframe the task to be more specific, concrete, and action-oriented
+2. Include a clear first step that feels easy to begin
+3. Connect the task to a deeper purpose or value when possible
+4. Adjust your reframing based on the user's current mode and mood
+5. For stressed users: Simplify and reduce pressure
+6. For motivated users: Channel enthusiasm and clarity
+7. For calm users: Maintain balance and thoughtfulness
+8. Keep your reframing concise and direct
+
+Your output should be a JSON object with a new task title and description that reflects this reframing approach.`
         },
         {
           role: "user",
-          content: `Please reframe this task to make it more approachable and actionable:
-Title: ${taskTitle}
-Description: ${taskDescription || "No description provided"}`
+          content: `Help me reframe this task to make it more approachable and motivating:
+
+Task: "${taskTitle}"
+${taskDescription ? `Description: ${taskDescription}` : ''}
+
+Consider my current mode: ${mode}, and mood: ${mood}. Suggest a revised framing or mindset that makes this task more achievable given my current state.
+
+Return a JSON object with "title" and "description" fields only.`
         }
       ],
       response_format: { type: "json_object" }
@@ -247,6 +277,10 @@ Description: ${taskDescription || "No description provided"}`
     };
   } catch (error) {
     console.error('Error generating task reframing:', error);
-    throw new Error('Failed to generate task reframing');
+    // Fallback response
+    return {
+      title: taskTitle,
+      description: "Break this into smaller steps and focus on one at a time."
+    };
   }
 }
