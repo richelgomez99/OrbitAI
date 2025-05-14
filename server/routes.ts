@@ -248,6 +248,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Generate subtasks for a task
+  app.post("/api/tasks/subtasks", async (req: Request, res: Response) => {
+    try {
+      const { title } = req.body;
+      
+      if (!title || typeof title !== 'string') {
+        return res.status(400).json({ error: "Task title is required" });
+      }
+      
+      let subtasks = ["Research topic", "Create outline", "Draft content", "Review and finalize"]; // Default subtasks
+      
+      try {
+        // Generate subtasks using OpenAI
+        subtasks = await generateTaskBreakdown(title);
+      } catch (aiError) {
+        console.error("Error generating subtasks:", aiError);
+        // Continue with default subtasks if AI fails
+      }
+      
+      res.status(200).json({ subtasks });
+    } catch (error) {
+      if (error instanceof Error) {
+        res.status(400).json({ error: error.message });
+      } else {
+        res.status(400).json({ error: "An unknown error occurred" });
+      }
+    }
+  });
+
   // Generate a motivational quote
   app.post("/api/quotes", async (req: Request, res: Response) => {
     try {

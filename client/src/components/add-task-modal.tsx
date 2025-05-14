@@ -45,13 +45,12 @@ export default function AddTaskModal() {
     try {
       const suggestions = await generateSubtasks(title);
       if (suggestions && suggestions.length) {
-        setSubtasks(
-          suggestions.map(title => ({ 
-            id: Math.random().toString(36).substring(2, 9),
-            title,
-            done: false
-          }))
-        );
+        const newSubtasks = suggestions.map(subtaskTitle => ({ 
+          id: Math.random().toString(36).substring(2, 9),
+          title: subtaskTitle,
+          done: false
+        }));
+        setSubtasks(newSubtasks);
       }
     } catch (error) {
       console.error("Error generating subtasks:", error);
