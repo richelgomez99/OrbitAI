@@ -1,0 +1,158 @@
+Complete a fully functional prototype with deep AI integration and thoughtful UI polish. This guide outlines all necessary changes. Implement carefully.
+
+Core Objectives:
+
+1. Improve UI/UX polish for a responsive mobile-first experience.
+
+
+2. Ensure AI is deeply contextual and responsive to user mode, mood, and intent.
+
+
+3. Make all core modes and features distinct and usable.
+
+
+4. Finalize all logic flows, input behavior, and dynamic rendering.
+
+
+5. Integrate AI using master prompt references and hook properly to OpenAI API.
+
+AI Integration Guide:
+
+Use the provided "AI Prompts for Orbit" document as your master implementation guide. Ensure:
+
+1. All AI features are integrated where relevant:
+
+Smart task suggestions after main task input.
+
+Task reframing via assistant.
+
+Motivational quotes per mode.
+
+Reflection summarization.
+
+Mood-aware interaction.
+
+
+
+2. OpenAI API integration is complete:
+
+Use secret key from environment for calls.
+
+Provide fallback UI if no key is detected.
+
+3. Output is structured:
+
+Subtasks = actionable list format.
+
+Chat = markdown-safe, assistant vs user roles.
+
+Reflections = mood + summary.
+
+
+
+4. All prompt and parsing logic is modularized in one service (e.g., lib/ai.ts or utils/ai-service.ts).
+
+
+
+
+---
+
+UI/UX Enhancements to Implement:
+
+Navigation & Flow:
+
+Bottom nav bar remains sticky across all pages.
+
+Improve visual feedback on active nav items (color, glow, or underline).
+
+Enlarge touch targets for better mobile usability.
+
+
+Add Task Modal:
+
+Fix contrast issues under the task input.
+
+Smart suggestions should be generated after task submission.
+
+Enable adding priority, deadline, and tags per task and subtasks.
+
+Show subtasks with editable fields: due date, priority, tag.
+
+Add visual indicator (e.g., “AI generated”) next to AI suggestions.
+
+
+Calendar Picker:
+
+Apply dark mode styling for visibility.
+
+Don’t force open—trigger manually with a “Set deadline” button.
+
+
+Modes:
+
+Build: energized purple, show quote box, fast-action tools.
+
+Recover: teal tone, show breaks/reframe suggestions.
+
+Reflect: deep navy/blue, show past reflections, weekly summary.
+
+
+Chat View:
+
+Add padding between messages.
+
+Make assistant responses visually distinct.
+
+Scroll smoothly with new messages.
+
+Add floating suggestion buttons (e.g., “Reframe”, “Need help deciding?”).
+
+
+Dashboard Improvements:
+
+Add data visualizations:
+
+Tasks by mode.
+
+Focus heatmap/calendar.
+
+Mood trends (emoji bar).
+
+
+Add Friction Tracker:
+
+List snoozed or ignored tasks.
+
+Highlight “blocked” patterns.
+
+
+Allow AI “reframe” button next to stuck tasks.
+
+
+Reflect Page:
+
+Timeline view of moods and reflections.
+
+Emoji mood logs over days.
+
+Weekly summary: “Top focus”, “Most blocked”, “Energy trend”.
+
+
+
+---
+
+Behavioral & Functional Enhancements:
+
+Ensure all state (mode, energy, mood) influences task and assistant logic.
+
+Add fallback state if API fails: e.g., “No suggestions available.”
+
+Improve scroll behavior across all views.
+
+Ensure mobile responsiveness: padding, transitions, button tap state.
+
+
+
+---
+
+> Please preserve current functionality, refactor as needed, and ensure all views are complete, responsive, and emotionally adaptive. This version should feel like a finished MVP—intelligent, polished, and distinct. Orbit is not a generic task manager. Build it like it matters.
