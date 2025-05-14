@@ -1,0 +1,140 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: 222 38% 8%;
+  --foreground: 210 40% 98%;
+  --muted: 217 19% 27%;
+  --muted-foreground: 215 16% 65%;
+  --popover: 222 38% 8%;
+  --popover-foreground: 210 40% 98%;
+  --card: 222 38% 12%;
+  --card-foreground: 210 40% 98%;
+  --border: 217 19% 27%;
+  --input: 217 19% 27%;
+  --primary: 210 40% 98%;
+  --primary-foreground: 222 47% 11%;
+  --secondary: 217 19% 27%;
+  --secondary-foreground: 210 40% 98%;
+  --accent: 173 83% 83%;
+  --accent-foreground: 222 47% 11%;
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 210 40% 98%;
+  --ring: 215 20.2% 65.1%;
+  --radius: 1rem;
+  
+  /* Custom colors for Orbit */
+  --surface: 0 0% 12%;
+  --build-mode: 270 67% 84%;
+  --maintain-mode: 190 91% 71%;
+  --recover-mode: 0 84% 60%;
+  --cta: 270 67% 84%;
+  --chart-1: 270 67% 84%;
+  --chart-2: 190 91% 71%;
+  --chart-3: 0 84% 60%;
+  --chart-4: 173 83% 83%;
+  --chart-5: 265 89% 73%;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-sans font-medium;
+  }
+  
+  .font-display {
+    @apply font-sans font-medium tracking-tight;
+  }
+}
+
+/* Animations */
+@layer utilities {
+  .animate-pulse {
+    animation: pulse 3s infinite alternate;
+  }
+
+  @keyframes pulse {
+    0% {
+      transform: scale(1);
+      opacity: 0.9;
+    }
+    100% {
+      transform: scale(1.05);
+      opacity: 1;
+    }
+  }
+
+  .animate-bounce-subtle {
+    animation: bounce-subtle 1s infinite alternate;
+  }
+
+  @keyframes bounce-subtle {
+    0% {
+      transform: translateY(0);
+    }
+    100% {
+      transform: translateY(-5px);
+    }
+  }
+
+  .animate-shimmer {
+    background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.1) 50%, rgba(255,255,255,0) 100%);
+    background-size: 200% 100%;
+    animation: shimmer 2s infinite;
+  }
+
+  @keyframes shimmer {
+    0% {
+      background-position: -200% 0;
+    }
+    100% {
+      background-position: 200% 0;
+    }
+  }
+
+  .animate-fade-in {
+    animation: fade-in 0.5s ease-in-out;
+  }
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+}
+
+/* Glass effect */
+.glass {
+  @apply bg-opacity-70 backdrop-blur-md;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-card rounded-lg;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-muted rounded-lg;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-muted-foreground;
+}
