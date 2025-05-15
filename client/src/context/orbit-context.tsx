@@ -45,6 +45,7 @@ interface OrbitContextType {
   
   // Focus streak
   focusStreak: boolean[];
+  recordTaskCompletionForStreak: () => void;
 }
 
 const OrbitContext = createContext<OrbitContextType | undefined>(undefined);
@@ -226,6 +227,9 @@ export function OrbitProvider({ children }: OrbitProviderProps) {
     try {
       await apiRequest("PATCH", `/api/tasks/${id}`, { status });
       queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+      if (status === "done") {
+        recordTaskCompletionForStreak();
+      }
     } catch (error) {
       console.error("Error updating task:", error);
     }
@@ -283,6 +287,19 @@ export function OrbitProvider({ children }: OrbitProviderProps) {
       setReflections(oldReflections); // Rollback optimistic update
       // TODO: Show user-facing error message
     }
+  };
+
+
+  // Record task completion for streak
+  const recordTaskCompletionForStreak = () => {
+    setFocusStreak(prevStreak => {
+      const newStreak = [...prevStreak];
+      newStreak[6] = true; // Mark today as active
+      // TODO: Implement logic for shifting streak days when a new day starts
+      // For now, this just ensures 'today' is marked if a task is done.
+      // A more robust solution would involve checking dates.
+      return newStreak;
+    });
   };
 
   // Send a message in the chat
@@ -394,6 +411,7 @@ export function OrbitProvider({ children }: OrbitProviderProps) {
     sendMessage,
     // Focus streak
     focusStreak,
+    recordTaskCompletionForStreak,
   };
 
   return <OrbitContext.Provider value={value}>{children}</OrbitContext.Provider>;

@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Task } from '@/lib/utils'; // Assuming Task type is exported from utils
-import { PlayCircle, Timer, ListChecks, ChevronRight, AlertTriangle } from 'lucide-react';
+import { PlayCircle, Timer, ListChecks, ChevronRight, AlertTriangle, Flame, CircleOff } from 'lucide-react';
 
 const priorityOrder: Record<Task['priority'], number> = {
   high: 1,
@@ -13,7 +13,7 @@ const priorityOrder: Record<Task['priority'], number> = {
 };
 
 const BuildDashboardContent: React.FC = () => {
-  const { tasks, setMode, setShowAddTaskModal } = useOrbit();
+  const { tasks, setMode, setShowAddTaskModal, focusStreak } = useOrbit();
 
   const [pomodoroActive, setPomodoroActive] = useState(false);
   const POMODORO_DURATION = 25 * 60; // 25 minutes in seconds
@@ -25,6 +25,20 @@ const BuildDashboardContent: React.FC = () => {
 
   const focusTask = activeTasks.length > 0 ? activeTasks[0] : null;
   const upcomingTasks = activeTasks.slice(1, 4); // Show next 3 upcoming tasks
+
+  // Calculate current streak
+  const calculateCurrentStreak = (streakArray: boolean[]): number => {
+    let currentStreak = 0;
+    for (let i = streakArray.length - 1; i >= 0; i--) {
+      if (streakArray[i]) {
+        currentStreak++;
+      } else {
+        break; // Streak broken
+      }
+    }
+    return currentStreak;
+  };
+  const currentStreakCount = calculateCurrentStreak(focusStreak);
 
   const handleStartFlowSession = () => {
     // Optionally, could set focusTask as active in context if such a feature is added
@@ -73,6 +87,22 @@ const BuildDashboardContent: React.FC = () => {
 
   return (
     <div className="animate-fade-in space-y-6">
+      {/* Streak Display Section */}
+      <Card className="shadow-md">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-lg flex items-center">
+            <Flame className="mr-2 h-5 w-5 text-orange-500" /> Current Streak: {currentStreakCount} day{currentStreakCount === 1 ? '' : 's'}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="flex space-x-2 justify-center pb-4">
+          {focusStreak.map((isActive, index) => (
+            <div key={index} title={`Day ${focusStreak.length - index}`} className={`h-6 w-6 rounded-full flex items-center justify-center border-2 ${isActive ? 'bg-orange-500 border-orange-600' : 'bg-muted border-gray-300'}`}>
+              {isActive ? <Flame className="h-4 w-4 text-white" /> : <CircleOff className="h-4 w-4 text-gray-400" />}
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+
       {/* Focus Task Section */}
       <Card className="shadow-lg">
         <CardHeader>
