@@ -107,6 +107,7 @@ export async function generateChatResponse(
     mood: 'stressed' | 'motivated' | 'calm';
     energy: number;
     recentMessages?: Array<{role: string, content: string}>;
+    currentTasks?: Array<{ id: string; title: string; content?: string | null; status: string; priority?: string | null; estimatedTime?: number | null; mode?: string | null }>;
   }
 ): Promise<AIChatResponse> {
   try {
@@ -135,6 +136,10 @@ Current user context:
         ? 'User has moderate energy. Suggest balanced activities that won\'t deplete them.'
         : 'User has high energy. Help them channel this productively without burning out.'
     })
+- Current tasks:
+  ${userContext.currentTasks && userContext.currentTasks.length > 0
+    ? userContext.currentTasks.map(task => `- Title: ${task.title} (Status: ${task.status}${task.priority ? `, Priority: ${task.priority}` : ''}${task.content ? `, Details: ${String(task.content).substring(0, 50)}...` : ''})`).join('\n  ')
+    : 'No specific tasks provided by user for this interaction. If a user asks about tasks, gently prompt them to share or list them.'}
 
 Your role is to be an emotionally intelligent productivity assistant. Your primary goal is to provide a supportive, encouraging chat response (2-4 sentences) that matches the user's current mood and energy level, offering practical micro-actions they can take to sustain momentum.
 
@@ -146,6 +151,7 @@ Key interaction guidelines for chat response:
 - If mode=reflect: Ask one thought-provoking question to deepen insight.
 - Always acknowledge their current state before offering suggestions.
 - Be human, warm, and personable - not robotic or generic.
+- When suggesting next steps, or if the user asks what to do, how to proceed (e.g., "What's next?", "What's one small step?", "Help me get started"), or asks for task prioritization, AND if 'Current tasks' are available and relevant to the user's mode/mood/energy, try to relate your suggestion to one of those tasks. If the query is specifically about task prioritization, you MUST use the 'Current tasks' list. Do not just ask them to list their tasks if they are already provided in the context.
 
 Output Format:
 Your entire response MUST be a single JSON object with the following structure:

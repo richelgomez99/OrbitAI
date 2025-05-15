@@ -96,44 +96,44 @@ export function StickyBottomNav() {
               } : {}) as any;
 
               return (
-                <Link key={item.route} href={item.route}>
-                  <a 
-                    className="block py-1.5 px-3 touch-manipulation" 
-                    style={itemStyle}
-                    onClick={() => {
-                      if (item.mode && setMode) {
-                        setMode(item.mode as Mode);
-                      }
-                    }}
+                <Link 
+                  key={item.route} 
+                  href={item.route}
+                  className="block py-1.5 px-3 touch-manipulation" 
+                  style={itemStyle}
+                  onClick={() => {
+                    if (item.mode && setMode) {
+                      setMode(item.mode as Mode);
+                    }
+                  }}
+                >
+                  <div 
+                    className={cn(
+                      "flex flex-col items-center transition-colors min-w-[60px]",
+                      isActive && itemHsl
+                        ? "text-[hsl(var(--item-accent-h)_var(--item-accent-s)_var(--item-accent-l))]"
+                        : "text-muted-foreground hover:text-foreground"
+                    )}
                   >
-                    <div 
-                      className={cn(
-                        "flex flex-col items-center transition-colors min-w-[60px]",
-                        isActive && itemHsl
-                          ? "text-[hsl(var(--item-accent-h)_var(--item-accent-s)_var(--item-accent-l))]"
-                          : "text-muted-foreground hover:text-foreground"
-                      )}
-                    >
-                      <div className={cn(
-                        "p-2.5 rounded-full transition-all",
-                        isActive && itemHsl && "bg-[hsl(var(--item-accent-h)_var(--item-accent-s)_calc(var(--item-accent-l)_*_0.3))]"
-                      )}>
-                        {item.icon}
-                      </div>
-                      <span className={cn(
-                        "text-xs mt-1.5 font-medium",
-                        isActive && "font-semibold"
-                      )}>
-                        {item.label}
-                      </span>
-                      {isActive && itemHsl && (
-                        <motion.div 
-                          className={`h-1.5 w-1.5 rounded-full mt-1 bg-[hsl(var(--item-accent-h)_var(--item-accent-s)_var(--item-accent-l))]`}
-                          layoutId="navIndicator"
-                        />
-                      )}
+                    <div className={cn(
+                      "p-2.5 rounded-full transition-all",
+                      isActive && itemHsl && "bg-[hsl(var(--item-accent-h)_var(--item-accent-s)_calc(var(--item-accent-l)_*_0.3))]"
+                    )}>
+                      {item.icon}
                     </div>
-                  </a>
+                    <span className={cn(
+                      "text-xs mt-1.5 font-medium",
+                      isActive && "font-semibold"
+                    )}>
+                      {item.label}
+                    </span>
+                    {isActive && itemHsl && (
+                      <motion.div 
+                        className={`h-1.5 w-1.5 rounded-full mt-1 bg-[hsl(var(--item-accent-h)_var(--item-accent-s)_var(--item-accent-l))]`}
+                        layoutId="navIndicator"
+                      />
+                    )}
+                  </div>
                 </Link>
               );
             })}

@@ -102,26 +102,7 @@ export function OrbitProvider({ children }: OrbitProviderProps) {
   const [reflections, setReflections] = useState<ReflectionEntry[]>([]);
   
   // Chat
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: "1",
-      role: "user",
-      content: "Help me prioritize my tasks for the morning",
-      timestamp: new Date()
-    },
-    {
-      id: "2",
-      role: "assistant",
-      content: "Absolutely!",
-      timestamp: new Date()
-    },
-    {
-      id: "3",
-      role: "assistant",
-      content: "What is the most important task you'd like to tackle?",
-      timestamp: new Date()
-    }
-  ]);
+  const [messages, setMessages] = useState<Message[]>([]);
 
   // Focus streak
   const [focusStreak, setFocusStreak] = useState<boolean[]>([true, true, false, false, false, false, false]);
@@ -154,20 +135,25 @@ export function OrbitProvider({ children }: OrbitProviderProps) {
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({
-            trigger: 'chat_opened',
-            context: { mode: mode, mood: mood, energyLevel: energy, timeOfDay: getTimeOfDay() },
-          }),
+          body: JSON.stringify({ trigger: 'chat_opened', context: { currentMode: mode, timeOfDay: getTimeOfDay() } }),
         });
         if (response.ok) {
           const assistantMessage = await response.json();
+          console.log('[DEBUG chat_opened] Raw response from /api/contextual-message:', JSON.stringify(assistantMessage));
+          console.log('[DEBUG chat_opened] assistantMessage.chatMessage:', assistantMessage.chatMessage);
+          if (assistantMessage && assistantMessage.chatMessage) {
+            console.log('[DEBUG chat_opened] typeof assistantMessage.chatMessage.content:', typeof assistantMessage.chatMessage.content);
+          } else {
+            console.log('[DEBUG chat_opened] assistantMessage or assistantMessage.chatMessage is null/undefined');
+          }
           if (assistantMessage.chatMessage && typeof assistantMessage.chatMessage.content === 'string') {
-            // Add this message such that it appears after any initially hardcoded messages
-            // For instance, if initial messages are set directly, this will be added after them.
-            // If messages are empty initially, this would be the first or among the first.
+            console.log('[DEBUG chat_opened] SUCCESS: Condition met. assistantMessage.chatMessage.content:', assistantMessage.chatMessage.content);
             addAssistantMessage(assistantMessage.chatMessage.content);
           } else {
-            console.warn('addAssistantMessage function not available or message format/content incorrect from /api/contextual-message for chat_opened. Received:', assistantMessage);
+            console.warn(
+              '[DEBUG chat_opened] FAILURE: Condition NOT met for chat_opened OR addAssistantMessage unavailable. This specific console.warn should NOT be hit if prior logs are correct. Received:',
+              assistantMessage
+            );
           }
         } else {
           console.error('Failed to fetch contextual message for chat_opened:', response.statusText);

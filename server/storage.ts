@@ -63,6 +63,10 @@ export class PrismaStorage {
     return prisma.task.delete({ where: { id } });
   }
 
+  async getTasksForUser(userId: string): Promise<Task[]> {
+    return prisma.task.findMany({ where: { userId }, orderBy: { createdAt: 'desc' } });
+  }
+
   // Reflection methods
   async getReflections(userId: string): Promise<Reflection[]> {
     return prisma.reflection.findMany({ where: { userId }, orderBy: { createdAt: 'desc' } });

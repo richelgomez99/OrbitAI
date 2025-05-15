@@ -104,11 +104,14 @@ export async function sendMessageToAssistant(
     
     const data = await response.json();
     // data.assistant is expected to match AssistantChatResponse structure from the server
-    if (data.assistant && typeof data.assistant.content === 'string') {
-      return data.assistant as AssistantChatResponse;
+    if (data.assistantMessage && typeof data.assistantMessage.content === 'string') {
+      // The backend sends the full message record as assistantMessage.
+      // We need to ensure it aligns with AssistantChatResponse, particularly for 'suggestions'.
+      // For now, assume assistantMessageRecord from backend has 'content'. Suggestions are separate.
+      return { content: data.assistantMessage.content, suggestions: data.suggestedTasks || [] } as AssistantChatResponse;
     }
     // Fallback or error handling if the structure is not as expected
-    console.error('Received unexpected assistant response structure:', data);
+    console.error('Received unexpected response structure from /api/messages. Expected data.assistantMessage with content string. Data:', data);
     return { content: "Sorry, I encountered an issue processing the response.", suggestions: [] };
   } catch (error) {
     console.error("Error sending message to assistant:", error);

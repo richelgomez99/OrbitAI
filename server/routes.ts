@@ -356,12 +356,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const allMessagesFromDb = await storage.getMessagesForUser(userId);
       const recentMessagesFromDb = allMessagesFromDb.slice(-10); // Get last 10 messages for context
 
+      // Prepare tasks for AI context
+      let currentTasksForAI: any[] = [];
+      const clientTasks = req.body.tasks as any[]; // Assuming client might send tasks
+
+      if (clientTasks && Array.isArray(clientTasks) && clientTasks.length > 0) {
+        currentTasksForAI = clientTasks.map(t => ({ 
+          id: t.id,
+          title: t.title,
+          content: t.content,
+          status: t.status,
+          priority: t.priority,
+          // Add other relevant fields if needed by AI, e.g., estimatedTime, mode
+        }));
+      } else {
+        const allUserTasks = await storage.getTasksForUser(userId);
+        currentTasksForAI = allUserTasks
+          .filter(task => task.status === 'todo' || task.status === 'inprogress')
+          .map(task => ({ 
+            id: task.id,
+            title: task.title,
+            content: task.content,
+            status: task.status,
+            priority: task.priority,
+            estimatedTime: task.estimatedTime,
+            mode: task.mode
+          }));
+      }
+
       // Prepare context for AI
       const userContext = {
         mode: (req.body.mode || 'flow') as 'build' | 'flow' | 'restore', // Get from req.body or default
         mood: (req.body.mood || 'calm') as 'stressed' | 'motivated' | 'calm',
         energy: parseInt(String(req.body.energy)) || 70, // Default to 70 if not provided or invalid
-        recentMessages: recentMessagesFromDb.map(m => ({ role: m.role, content: m.content })).reverse() // Ensure chronological order for AI
+        recentMessages: recentMessagesFromDb.map(m => ({ role: m.role, content: m.content })).reverse(), // Ensure chronological order for AI
+        currentTasks: currentTasksForAI
       };
 
       // Generate AI response using the structured AIChatResponse type
