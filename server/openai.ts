@@ -74,10 +74,28 @@ Output format should be a JSON object with a "subtasks" array.`
 }
 
 /**
- * Generate a personalized response to a user message
+ * Interface for AI-suggested tasks.
+ */
+export interface AISuggestion {
+  title: string;
+  priority?: 'low' | 'medium' | 'high';
+  mode?: 'build' | 'maintain' | 'recover' | 'reflect';
+  // Add other fields if the AI should suggest them, e.g., estimatedTime, description_hint
+}
+
+/**
+ * Interface for the structured response from the AI chat.
+ */
+export interface AIChatResponse {
+  chat_response: string;
+  suggested_tasks?: AISuggestion[];
+}
+
+/**
+ * Generate a personalized response to a user message, optionally including task suggestions.
  * @param userMessage - The message from the user
  * @param userContext - Context about the user (mood, mode, previous messages)
- * @returns AI assistant's response
+ * @returns A structured object with the AI assistant's response and optional task suggestions.
  */
 export async function generateChatResponse(
   userMessage: string,
@@ -87,7 +105,7 @@ export async function generateChatResponse(
     energy: number;
     recentMessages?: Array<{role: string, content: string}>;
   }
-): Promise<string> {
+): Promise<AIChatResponse> {
   try {
     const contextPrompt = `
 Current user context:
@@ -115,14 +133,32 @@ Current user context:
         : 'User has high energy. Help them channel this productively without burning out.'
     })
 
-Your role is to be an emotionally intelligent productivity assistant. Please respond in a supportive, encouraging tone that matches their current mood and energy level. Keep responses concise (2-4 sentences). Offer practical micro-actions they can take right now to maintain momentum.
+Your role is to be an emotionally intelligent productivity assistant. Your primary goal is to provide a supportive, encouraging chat response (2-4 sentences) that matches the user's current mood and energy level, offering practical micro-actions they can take to maintain momentum.
 
-Key interaction guidelines:
-- If mode=recover and energy<30: Focus on self-compassion and rest
-- If mode=build and mood=motivated: Channel enthusiasm into concrete next steps
-- If mode=reflect: Ask one thought-provoking question to deepen insight
-- Always acknowledge their current state before offering suggestions
-- Be human, warm, and personable - not robotic or generic
+Additionally, if the conversation naturally leads to potential new tasks that could help the user, you may suggest 1-2 such tasks. These suggestions should be directly relevant to the user's current goals or challenges as discussed.
+
+Key interaction guidelines for chat response:
+- If mode=recover and energy<30: Focus on self-compassion and rest.
+- If mode=build and mood=motivated: Channel enthusiasm into concrete next steps.
+- If mode=reflect: Ask one thought-provoking question to deepen insight.
+- Always acknowledge their current state before offering suggestions.
+- Be human, warm, and personable - not robotic or generic.
+
+Output Format:
+Your entire response MUST be a single JSON object with the following structure:
+{
+  "chat_response": "Your conversational message to the user (2-4 sentences).",
+  "suggested_tasks": [] // Optional: An array of 0-2 suggested task objects. Omit or leave empty if no relevant tasks are suggested.
+}
+
+For suggested_tasks, each task object should have a 'title'. Optionally, it can include 'priority' ('low', 'medium', 'high') and 'mode' ('build', 'maintain', 'recover', 'reflect').
+Example for suggested_tasks:
+"suggested_tasks": [
+  {"title": "Draft initial outline for the report", "priority": "medium", "mode": "build"},
+  {"title": "Schedule a 15-min break"}
+]
+
+Do NOT include any text outside of this JSON object structure.
 `;
 
     const response = await openai.chat.completions.create({
@@ -136,13 +172,37 @@ Key interaction guidelines:
           role: "user",
           content: userMessage
         }
-      ]
+      ],
+      response_format: { type: "json_object" }
     });
 
-    return response.choices[0].message.content || "I'm here to help. How can I support you right now?";
+    if (!response.choices[0].message.content) {
+      // Fallback in case of empty content
+      return {
+        chat_response: "I'm here to help. How can I support you right now?",
+      };
+    }
+
+    try {
+      const parsedResponse = JSON.parse(response.choices[0].message.content) as AIChatResponse;
+      // Ensure chat_response is always present
+      if (!parsedResponse.chat_response) {
+        parsedResponse.chat_response = "I'm having a little trouble forming a thought, but I'm still here to support you!";
+      }
+      return parsedResponse;
+    } catch (e) {
+      console.error('Error parsing AI JSON response:', e);
+      // Fallback if JSON parsing fails but content exists
+      return {
+        chat_response: response.choices[0].message.content, // Send raw content if it's not valid JSON
+      };
+    }
+
   } catch (error) {
     console.error('Error generating chat response:', error);
-    throw new Error('Failed to generate chat response');
+    return {
+      chat_response: "I seem to be having a little trouble connecting right now. Let's try again in a moment."
+    };
   }
 }
 
