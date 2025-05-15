@@ -10,7 +10,7 @@ export default function AppNavigation() {
   
   return (
     <motion.nav 
-      className="fixed bottom-0 left-0 right-0 bg-[rgba(31,31,31,0.7)] backdrop-blur-md p-4 z-50 border-t border-gray-800"
+      className="fixed bottom-0 left-0 right-0 bg-[#1A1A1E] p-3 z-50 border-t border-gray-700 shadow-xl"
       initial={{ y: 100 }}
       animate={{ y: 0 }}
       transition={{ type: "spring", stiffness: 300, damping: 30 }}
@@ -19,7 +19,7 @@ export default function AppNavigation() {
         <Link href="/flow">
           <Button 
             variant="ghost" 
-            className={`flex flex-col items-center ${location === "/flow" ? "text-[#9F7AEA]" : "text-secondary"}`}
+            className={`flex flex-col items-center px-3 py-2 rounded-lg ${location === "/flow" ? "text-[#9F7AEA] bg-purple-500/10" : "text-gray-400"}`}
           >
             <Zap className="h-5 w-5 mb-1" />
             <span className="text-xs">Flow</span>
@@ -29,7 +29,7 @@ export default function AppNavigation() {
         <Link href="/dashboard">
           <Button 
             variant="ghost" 
-            className={`flex flex-col items-center ${location === "/dashboard" ? "text-[#9F7AEA]" : "text-secondary"}`}
+            className={`flex flex-col items-center px-3 py-2 rounded-lg ${location === "/dashboard" ? "text-[#9F7AEA] bg-purple-500/10" : "text-gray-400"}`}
           >
             <PieChart className="h-5 w-5 mb-1" />
             <span className="text-xs">Dashboard</span>
@@ -51,7 +51,7 @@ export default function AppNavigation() {
         <Link href="/reflect">
           <Button 
             variant="ghost" 
-            className={`flex flex-col items-center ${location === "/reflect" ? "text-[#9F7AEA]" : "text-secondary"}`}
+            className={`flex flex-col items-center px-3 py-2 rounded-lg ${location === "/reflect" ? "text-[#9F7AEA] bg-purple-500/10" : "text-gray-400"}`}
           >
             <Brain className="h-5 w-5 mb-1" />
             <span className="text-xs">Reflect</span>
@@ -61,7 +61,7 @@ export default function AppNavigation() {
         <Link href="/chat">
           <Button 
             variant="ghost" 
-            className={`flex flex-col items-center ${location === "/chat" ? "text-[#9F7AEA]" : "text-secondary"}`}
+            className={`flex flex-col items-center px-3 py-2 rounded-lg ${location === "/chat" ? "text-[#9F7AEA] bg-purple-500/10" : "text-gray-400"}`}
           >
             <MessageCircle className="h-5 w-5 mb-1" />
             <span className="text-xs">Chat</span>
