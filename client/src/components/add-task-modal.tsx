@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ArrowLeft, Plus, Calendar, Tag, CalendarClock, Clock, XCircle } from "lucide-react";
 import { useOrbit } from "@/context/orbit-context";
 import { motion } from "framer-motion";
@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/select";
 
 export default function AddTaskModal() {
-  const { showAddTaskModal, setShowAddTaskModal, addTask, mode } = useOrbit();
+  const { showAddTaskModal, setShowAddTaskModal, addTask, mode, initialTaskData, setInitialTaskData } = useOrbit();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [priority, setPriority] = useState<Priority>("medium");
@@ -36,6 +36,23 @@ export default function AddTaskModal() {
   const [subtasks, setSubtasks] = useState<{id: string; title: string; done: boolean}[]>([]);
   const [isGeneratingSubtasks, setIsGeneratingSubtasks] = useState(false);
   const [newSubtask, setNewSubtask] = useState("");
+  const [isAiGenerated, setIsAiGenerated] = useState(false);
+
+  useEffect(() => {
+    if (showAddTaskModal && initialTaskData) {
+      setTitle(initialTaskData.title || "");
+      setDescription(initialTaskData.description || "");
+      setPriority(initialTaskData.priority || "medium");
+      setSelectedDate(initialTaskData.dueDate || undefined);
+      setEstimatedTime(initialTaskData.estimatedTime || undefined);
+      setTaskMode(initialTaskData.mode || mode); // Default to global mode if not specified
+      setTags(initialTaskData.tags || []);
+      setSubtasks(initialTaskData.subtasks || []); // Pre-fill subtasks
+      setIsAiGenerated(initialTaskData.isAiGenerated || false);
+    }
+    // Clearing of initialTaskData and form reset is handled by 
+    // handleOpenChange when the dialog closes, and by handleSave.
+  }, [showAddTaskModal, initialTaskData, mode]);
 
   // Generate AI subtasks when task title changes
   const generateAiSubtasks = async () => {
@@ -70,8 +87,9 @@ export default function AddTaskModal() {
         mode: taskMode,
         tags: tags.length > 0 ? tags : undefined,
         subtasks: subtasks.length > 0 ? subtasks : undefined,
-        isAiGenerated: false,
+        isAiGenerated: isAiGenerated,
       });
+      setInitialTaskData(null); // Clear initial data after saving
       resetForm();
       setShowAddTaskModal(false);
     }
@@ -88,6 +106,8 @@ export default function AddTaskModal() {
     setNewTag("");
     setSubtasks([]);
     setNewSubtask("");
+    setIsAiGenerated(false);
+    // setInitialTaskData(null); // Clearing here as well to be safe, though onOpenChange / save should handle it.
   };
   
   const addTag = () => {
@@ -119,8 +139,16 @@ export default function AddTaskModal() {
     setSubtasks(subtasks.filter(subtask => subtask.id !== id));
   };
 
+  const handleOpenChange = (isOpen: boolean) => {
+    setShowAddTaskModal(isOpen);
+    if (!isOpen) {
+      resetForm(); // Resets form state and clears initialTaskData implicitly via resetForm's logic
+      setInitialTaskData(null); // Explicitly clear here too for safety
+    }
+  };
+
   return (
-    <Dialog open={showAddTaskModal} onOpenChange={setShowAddTaskModal}>
+    <Dialog open={showAddTaskModal} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-md rounded-3xl border border-gray-800 bg-card max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <div className="flex justify-between items-center">
@@ -142,7 +170,8 @@ export default function AddTaskModal() {
             className="text-lg text-primary"
             placeholder="What do you need to do?"
             onBlur={() => {
-              if (title.trim() && subtasks.length === 0) {
+              // Only auto-generate if title is present, no subtasks yet, AND task is NOT from AI chat suggestion
+              if (title.trim() && subtasks.length === 0 && !isAiGenerated) {
                 generateAiSubtasks();
               }
             }}
@@ -184,9 +213,8 @@ export default function AddTaskModal() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="build">Build</SelectItem>
-                <SelectItem value="maintain">Maintain</SelectItem>
-                <SelectItem value="recover">Recover</SelectItem>
-                <SelectItem value="reflect">Reflect</SelectItem>
+                <SelectItem value="flow">Flow</SelectItem>
+                <SelectItem value="restore">Restore</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -276,14 +304,26 @@ export default function AddTaskModal() {
           </div>
         </div>
         
-        {/* Subtasks */}
-        <div className="mb-6">
+        {/* Subtasks Section */}
+        {isAiGenerated && title.trim() && (
+          <div className="my-4 flex justify-center">
+            <Button 
+              variant="outline"
+              size="sm"
+              onClick={generateAiSubtasks} 
+              disabled={isGeneratingSubtasks || !title.trim()}
+              className="border-purple-500 text-purple-500 hover:bg-purple-500/10 hover:text-purple-600"
+            >
+              {isGeneratingSubtasks ? "Thinking..." : " Break down further with AI?"}
+            </Button>
+          </div>
+        )}
+        <div className="mb-4">
           <div className="flex justify-between items-center mb-2">
             <h3 className="text-xs font-medium text-gray-400">Subtasks</h3>
             <Button 
               variant="link" 
               size="sm" 
-              className="text-[#9F7AEA] h-auto p-0"
               onClick={generateAiSubtasks}
               disabled={!title.trim() || isGeneratingSubtasks}
             >

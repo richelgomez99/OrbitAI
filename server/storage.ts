@@ -1,395 +1,205 @@
-import { 
-  User, InsertUser, 
-  Task, InsertTask, 
-  Reflection, InsertReflection, 
-  Message, InsertMessage 
-} from "@shared/schema";
+import { PrismaClient, User, Task, Reflection, Message, FocusSession, Prisma } from '@prisma/client';
 
-// Modify the interface with any CRUD methods you need
-export interface IStorage {
+const prisma = new PrismaClient();
+
+export class PrismaStorage {
   // User methods
-  getUser(id: number): Promise<User | undefined>;
-  getUserByUsername(username: string): Promise<User | undefined>;
-  createUser(user: InsertUser): Promise<User>;
-  
+  async getUser(id: string): Promise<User | null> {
+    return prisma.user.findUnique({ where: { id } });
+  }
+
+  async getUserByEmail(email: string): Promise<User | null> {
+    return prisma.user.findUnique({ where: { email } });
+  }
+
+  async createUser(data: Prisma.UserCreateInput): Promise<User> {
+    return prisma.user.create({ data });
+  }
+
   // Task methods
-  getTasks(userId?: number): Promise<Task[]>;
-  getTask(id: number): Promise<Task | undefined>;
-  createTask(task: InsertTask): Promise<Task>;
-  updateTask(id: number, data: Partial<Task>): Promise<Task | undefined>;
-  deleteTask(id: number): Promise<boolean>;
-  
+  async getTasks(userId: string, options?: {
+    status?: 'todo' | 'inprogress' | 'done' | 'blocked' | 'pending';
+    priority?: 'low' | 'medium' | 'high';
+    mode?: 'build' | 'flow' | 'restore';
+    page?: number;
+    limit?: number;
+  }): Promise<Task[]> {
+    const where: Prisma.TaskWhereInput = { userId };
+
+    if (options?.status) {
+      where.status = options.status;
+    }
+    if (options?.priority) {
+      where.priority = options.priority;
+    }
+    if (options?.mode) {
+      where.mode = options.mode;
+    }
+
+    const take = options?.limit ?? 10; // Default limit to 10
+    const skip = options?.page && options.page > 0 ? (options.page - 1) * take : 0; // Default page to 1 (skip 0)
+
+    return prisma.task.findMany({
+      where,
+      take,
+      skip,
+      orderBy: { createdAt: 'desc' } // Default sort order, can be parameterized later
+    });
+  }
+
+  async getTask(id: string): Promise<Task | null> {
+    return prisma.task.findUnique({ where: { id } });
+  }
+
+  async createTask(data: Prisma.TaskCreateInput): Promise<Task> {
+    return prisma.task.create({ data });
+  }
+
+  async updateTask(id: string, data: Prisma.TaskUpdateInput): Promise<Task | null> {
+    return prisma.task.update({ where: { id }, data });
+  }
+
+  async deleteTask(id: string): Promise<Task | null> {
+    return prisma.task.delete({ where: { id } });
+  }
+
   // Reflection methods
-  getReflections(userId?: number): Promise<Reflection[]>;
-  getReflection(id: number): Promise<Reflection | undefined>;
-  createReflection(reflection: InsertReflection): Promise<Reflection>;
-  
+  async getReflections(userId: string): Promise<Reflection[]> {
+    return prisma.reflection.findMany({ where: { userId }, orderBy: { createdAt: 'desc' } });
+  }
+
+  async getReflection(id: string): Promise<Reflection | null> {
+    return prisma.reflection.findUnique({ where: { id } });
+  }
+
+  async createReflection(data: Prisma.ReflectionCreateInput): Promise<Reflection> {
+    return prisma.reflection.create({ data });
+  }
+
   // Message methods
-  getMessages(userId?: number): Promise<Message[]>;
-  createMessage(message: InsertMessage): Promise<Message>;
-}
+  async getMessagesForTask(taskId: string): Promise<Message[]> {
+    return prisma.message.findMany({ where: { taskId }, orderBy: { createdAt: 'asc' } });
+  }
 
-export class MemStorage implements IStorage {
-  private users: Map<number, User>;
-  private tasks: Map<number, Task>;
-  private reflections: Map<number, Reflection>;
-  private messages: Map<number, Message>;
+  async getMessagesForUser(userId: string): Promise<Message[]> {
+    return prisma.message.findMany({ where: { userId }, orderBy: { createdAt: 'asc' } });
+  }
+
+  async createMessage(data: Prisma.MessageCreateInput): Promise<Message> {
+    return prisma.message.create({ data });
+  }
+
+  // FocusSession methods
+  async createFocusSession(data: Prisma.FocusSessionCreateInput): Promise<FocusSession> {
+    return prisma.focusSession.create({ data });
+  }
+
+  async updateFocusSession(id: string, data: Prisma.FocusSessionUpdateInput): Promise<FocusSession | null> {
+    return prisma.focusSession.update({ where: { id }, data });
+  }
   
-  private userCurrentId: number;
-  private taskCurrentId: number;
-  private reflectionCurrentId: number;
-  private messageCurrentId: number;
-
-  constructor() {
-    this.users = new Map();
-    this.tasks = new Map();
-    this.reflections = new Map();
-    this.messages = new Map();
-    
-    this.userCurrentId = 1;
-    this.taskCurrentId = 1;
-    this.reflectionCurrentId = 1;
-    this.messageCurrentId = 1;
-    
-    // Add sample data
-    this.createTask({
-      userId: null,
-      title: "Create landing page wireframes",
-      description: "Reframe: Break it into homepage, about, and features sections first",
-      status: "todo",
-      priority: "medium",
-      estimatedTime: 45,
-      mode: "build",
-      createdAt: new Date()
-    });
-    
-    this.createTask({
-      userId: null,
-      title: "Send proposal to client",
-      description: "Reframe: Focus on value proposition instead of feature list",
-      status: "todo",
-      priority: "high",
-      estimatedTime: 20,
-      mode: "build",
-      createdAt: new Date()
-    });
-    
-    this.createMessage({
-      userId: null,
-      role: "user",
-      content: "Help me prioritize my tasks for the morning"
-    });
-    
-    this.createMessage({
-      userId: null,
-      role: "assistant",
-      content: "Absolutely!"
-    });
-    
-    this.createMessage({
-      userId: null,
-      role: "assistant", 
-      content: "What is the most important task you'd like to tackle?"
+  async getActiveFocusSession(userId: string): Promise<FocusSession | null> {
+    return prisma.focusSession.findFirst({
+      where: {
+        userId,
+        endedAt: null,
+      },
+      orderBy: {
+        startedAt: 'desc',
+      },
     });
   }
 
-  // User methods
-  async getUser(id: number): Promise<User | undefined> {
-    return this.users.get(id);
-  }
-
-  async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.username === username,
-    );
-  }
-
-  async createUser(insertUser: InsertUser): Promise<User> {
-    const id = this.userCurrentId++;
-    const user: User = { ...insertUser, id };
-    this.users.set(id, user);
-    return user;
-  }
-  
-  // Task methods
-  async getTasks(userId?: number): Promise<Task[]> {
-    const tasks = Array.from(this.tasks.values());
-    if (userId !== undefined) {
-      return tasks.filter(task => task.userId === userId);
-    }
-    return tasks;
-  }
-  
-  async getTask(id: number): Promise<Task | undefined> {
-    return this.tasks.get(id);
-  }
-  
-  async createTask(task: InsertTask): Promise<Task> {
-    const id = this.taskCurrentId++;
-    const newTask: Task = { ...task, id } as Task;
-    
-    // Ensure createdAt is a Date object
-    if (!newTask.createdAt) {
-      newTask.createdAt = new Date();
-    }
-    
-    this.tasks.set(id, newTask);
-    return newTask;
-  }
-  
-  async updateTask(id: number, data: Partial<Task>): Promise<Task | undefined> {
-    const task = this.tasks.get(id);
-    if (!task) return undefined;
-    
-    const updatedTask = { ...task, ...data };
-    this.tasks.set(id, updatedTask);
-    return updatedTask;
-  }
-  
-  async deleteTask(id: number): Promise<boolean> {
-    return this.tasks.delete(id);
-  }
-  
-  // Reflection methods
-  async getReflections(userId?: number): Promise<Reflection[]> {
-    const reflections = Array.from(this.reflections.values());
-    if (userId !== undefined) {
-      return reflections.filter(reflection => reflection.userId === userId);
-    }
-    return reflections;
-  }
-  
-  async getReflection(id: number): Promise<Reflection | undefined> {
-    return this.reflections.get(id);
-  }
-  
-  async createReflection(reflection: InsertReflection): Promise<Reflection> {
-    const id = this.reflectionCurrentId++;
-    const newReflection: Reflection = { ...reflection, id } as Reflection;
-    
-    // Ensure date is a Date object
-    if (!newReflection.date) {
-      newReflection.date = new Date();
-    }
-    
-    this.reflections.set(id, newReflection);
-    return newReflection;
-  }
-  
-  // Message methods
-  async getMessages(userId?: number): Promise<Message[]> {
-    const messages = Array.from(this.messages.values());
-    if (userId !== undefined) {
-      return messages.filter(message => message.userId === userId);
-    }
-    return messages;
-  }
-  
-  async createMessage(message: InsertMessage): Promise<Message> {
-    const id = this.messageCurrentId++;
-    const newMessage: Message = { 
-      ...message, 
-      id, 
-      timestamp: new Date() 
-    } as Message;
-    
-    this.messages.set(id, newMessage);
-    return newMessage;
+  async endAllActiveFocusSessions(userId: string): Promise<Prisma.BatchPayload> {
+    return prisma.focusSession.updateMany({
+      where: {
+        userId,
+        endedAt: null,
+      },
+      data: {
+        endedAt: new Date(),
+      },
+    });
   }
 }
 
-// Import required Drizzle ORM functions
-import { db } from "./db";
-import { eq, count } from "drizzle-orm";
-import { 
-  users, tasks, reflections, messages
-} from "@shared/schema";
-
-export class DatabaseStorage implements IStorage {
-  // User methods
-  async getUser(id: number): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.id, id));
-    return user || undefined;
-  }
-
-  async getUserByUsername(username: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.username, username));
-    return user || undefined;
-  }
-
-  async createUser(insertUser: InsertUser): Promise<User> {
-    const [user] = await db
-      .insert(users)
-      .values(insertUser)
-      .returning();
-    return user;
-  }
-  
-  // Task methods
-  async getTasks(userId?: number): Promise<Task[]> {
-    if (userId !== undefined) {
-      return db.select().from(tasks).where(eq(tasks.userId, userId));
-    }
-    return db.select().from(tasks);
-  }
-
-  async getTask(id: number): Promise<Task | undefined> {
-    const [task] = await db.select().from(tasks).where(eq(tasks.id, id));
-    return task || undefined;
-  }
-
-  async createTask(task: InsertTask): Promise<Task> {
-    const [newTask] = await db
-      .insert(tasks)
-      .values({
-        ...task,
-        lastUpdated: new Date()
-      })
-      .returning();
-    return newTask;
-  }
-
-  async updateTask(id: number, data: Partial<Task>): Promise<Task | undefined> {
-    const [updatedTask] = await db
-      .update(tasks)
-      .set({
-        ...data,
-        lastUpdated: new Date()
-      })
-      .where(eq(tasks.id, id))
-      .returning();
-    return updatedTask || undefined;
-  }
-
-  async deleteTask(id: number): Promise<boolean> {
-    const result = await db
-      .delete(tasks)
-      .where(eq(tasks.id, id));
-    return result.count > 0;
-  }
-  
-  // Reflection methods
-  async getReflections(userId?: number): Promise<Reflection[]> {
-    if (userId !== undefined) {
-      return db.select().from(reflections).where(eq(reflections.userId, userId));
-    }
-    return db.select().from(reflections);
-  }
-
-  async getReflection(id: number): Promise<Reflection | undefined> {
-    const [reflection] = await db.select().from(reflections).where(eq(reflections.id, id));
-    return reflection || undefined;
-  }
-
-  async createReflection(reflection: InsertReflection): Promise<Reflection> {
-    const [newReflection] = await db
-      .insert(reflections)
-      .values(reflection)
-      .returning();
-    return newReflection;
-  }
-  
-  // Message methods
-  async getMessages(userId?: number): Promise<Message[]> {
-    if (userId !== undefined) {
-      return db.select().from(messages).where(eq(messages.userId, userId));
-    }
-    return db.select().from(messages);
-  }
-
-  async createMessage(message: InsertMessage): Promise<Message> {
-    const [newMessage] = await db
-      .insert(messages)
-      .values(message)
-      .returning();
-    return newMessage;
-  }
-}
-
-// Initialize with sample data on first run
-async function seedInitialData() {
-  try {
-    const taskCount = await db.select({ count: count() }).from(tasks);
-    
-    if (Number(taskCount[0].count) === 0) {
-      // Add some sample tasks
-      await db.insert(tasks).values([
-        {
-          userId: null,
-          title: "Create landing page wireframes",
-          description: "Reframe: Break it into homepage, about, and features sections first",
-          status: "todo",
-          priority: "medium",
-          estimatedTime: 45,
-          mode: "build",
-          lastUpdated: new Date(),
-          isAiGenerated: false,
-          friction: 0
-        },
-        {
-          userId: null,
-          title: "Send proposal to client",
-          description: "Reframe: Focus on value proposition instead of feature list",
-          status: "todo",
-          priority: "high",
-          estimatedTime: 20,
-          mode: "build",
-          lastUpdated: new Date(),
-          isAiGenerated: false,
-          friction: 0
-        }
-      ]);
-      
-      // Add some sample messages
-      await db.insert(messages).values([
-        {
-          userId: null,
-          role: "user",
-          content: "Help me prioritize my tasks for the morning",
-          contextMode: "build",
-          contextMood: "motivated",
-          contextEnergy: 70
-        },
-        {
-          userId: null,
-          role: "assistant",
-          content: "Absolutely!",
-          contextMode: "build",
-          contextMood: "motivated",
-          contextEnergy: 70
-        },
-        {
-          userId: null,
-          role: "assistant", 
-          content: "What is the most important task you'd like to tackle?",
-          contextMode: "build",
-          contextMood: "motivated",
-          contextEnergy: 70
-        }
-      ]);
-
-      // Add default user if none exists
-      const userCount = await db.select({ count: count() }).from(users);
-      if (Number(userCount[0].count) === 0) {
-        await db.insert(users).values({
-          username: "default_user",
-          password: "password123", // In a real app, this would be hashed
-          currentMode: "build",
-          currentMood: "motivated",
-          currentEnergy: 70,
-          focusStreak: [true, true, false, true, false],
-          preferences: {},
-          lastActive: new Date()
-        });
-      }
-    }
-  } catch (error) {
-    console.error("Error seeding initial data:", error);
-  }
-}
-
-// Use the DatabaseStorage
-export const storage = new DatabaseStorage();
+export const storage = new PrismaStorage();
 
 // Seed initial data
-seedInitialData().catch(console.error);
+export async function seedInitialData() {
+  try {
+    const defaultUserEmail = 'user@example.com';
+    let user = await storage.getUserByEmail(defaultUserEmail);
+
+    if (!user) {
+      console.log('Creating default user...');
+      user = await storage.createUser({
+        email: defaultUserEmail,
+      });
+      console.log('Default user created:', user);
+    } else {
+      console.log('Default user already exists:', user);
+    }
+
+    // Check and seed tasks if user exists
+    if (user) {
+      const taskCount = await prisma.task.count({ where: { userId: user.id } });
+      if (taskCount === 0) {
+        console.log(`Seeding tasks for user ${user.id}...`);
+        await storage.createTask({
+          title: 'Explore Orbit AI capabilities',
+          content: 'Try out Build, Flow, and Restore modes.',
+          status: 'todo',
+          priority: 'high',
+          estimatedTime: 60,
+          mode: 'build',
+          user: { connect: { id: user.id } },
+        });
+
+        await storage.createTask({
+          title: 'Plan next week\'s project sprint',
+          content: 'Break down into smaller, manageable tasks.',
+          status: 'todo',
+          priority: 'medium',
+          estimatedTime: 120,
+          mode: 'build',
+          user: { connect: { id: user.id } },
+        });
+        console.log('Tasks seeded.');
+      } else {
+        console.log(`User ${user.id} already has tasks.`);
+      }
+
+      // Check and seed messages if user exists
+      const messageCount = await prisma.message.count({ where: { userId: user.id }}); 
+      if (messageCount === 0) {
+          console.log(`Seeding messages for user ${user.id}...`);
+          await storage.createMessage({
+              role: 'user',
+              content: 'What should I focus on today?',
+              user: { connect: { id: user.id } }
+          });
+          await storage.createMessage({
+              role: 'assistant',
+              content: 'Let\'s review your high-priority tasks. The "Explore Orbit AI capabilities" task seems like a good start!',
+              user: { connect: { id: user.id } }
+          });
+          console.log('Messages seeded.');
+      } else {
+          console.log(`User ${user.id} already has messages.`);
+      }
+    } // End of if(user) block
+
+  } catch (error) {
+    console.error('Error seeding initial data:', error);
+  }
+}
+
+seedInitialData()
+  .catch((e) => {
+    console.error('Error in seeding process:', e);
+    // process.exit(1); // Optionally exit if seeding is critical
+  })
+  .finally(async () => {
+    // await prisma.$disconnect(); // Disconnecting here might be too soon if server is long-running
+  });

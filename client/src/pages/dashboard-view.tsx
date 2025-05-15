@@ -3,8 +3,8 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { formatDueDate, getModeTheme } from "@/lib/utils";
 import BuildDashboardContent from '@/components/dashboard/mode_views/BuildDashboardContent';
-import RecoverDashboardContent from '@/components/dashboard/mode_views/RecoverDashboardContent';
-import ReflectDashboardContent from '@/components/dashboard/mode_views/ReflectDashboardContent';
+
+import RestoreDashboardContent from '@/components/dashboard/mode_views/RestoreDashboardContent';
 import FlowDashboardContent from '@/components/dashboard/mode_views/FlowDashboardContent';
 import { motion } from "framer-motion";
 import { ChevronDownSquare } from 'lucide-react';
@@ -152,10 +152,8 @@ export default function DashboardView() {
           switch (mode) {
             case 'build':
               return <BuildDashboardContent />;
-            case 'recover':
-              return <RecoverDashboardContent />;
-            case 'reflect':
-              return <ReflectDashboardContent />;
+            case 'restore':
+              return <RestoreDashboardContent />;
             case 'flow':
               return <FlowDashboardContent />;
             default:
@@ -199,7 +197,7 @@ export default function DashboardView() {
         </Button>
       </motion.div>
       
-      {/* Today's Focus */}
+      {/* Today's Focus Card - Commented Out
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -214,6 +212,7 @@ export default function DashboardView() {
           </p>
         </Card>
       </motion.div>
+      */}
     </div>
   );
 }

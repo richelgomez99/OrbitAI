@@ -4,7 +4,7 @@ import { Mode, Mood, Task, ReflectionEntry, Message, generateId, formatDueDate, 
 import { useLocation } from "wouter";
 import { queryClient } from "@/lib/queryClient";
 import { apiRequest } from "@/lib/queryClient";
-import { getMotivationalQuote, sendMessageToAssistant } from "@/lib/ai";
+import { getMotivationalQuote, sendMessageToAssistant, type AISuggestion, type AssistantChatResponse } from "@/lib/ai";
 
 interface OrbitContextType {
   // App state
@@ -26,6 +26,9 @@ interface OrbitContextType {
   setShowModeSwitcher: (show: boolean) => void;
   showAddTaskModal: boolean;
   setShowAddTaskModal: (show: boolean) => void;
+  initialTaskData: Partial<Task> | null;
+  openAddTaskModalWithData: (data: Partial<Task>) => void;
+  setInitialTaskData: React.Dispatch<React.SetStateAction<Partial<Task> | null>>;
   
   // Tasks
   tasks: Task[];
@@ -42,6 +45,8 @@ interface OrbitContextType {
   // Chat
   messages: Message[];
   sendMessage: (content: string) => void;
+  aiSuggestions: AISuggestion[];
+  setAiSuggestions: React.Dispatch<React.SetStateAction<AISuggestion[]>>;
   
   // Focus streak
   focusStreak: boolean[];
@@ -59,7 +64,7 @@ export function OrbitProvider({ children }: OrbitProviderProps) {
   // App state
   const [mode, setModeState] = useState<Mode>(() => {
     const storedMode = localStorage.getItem('orbitMode') as Mode;
-    const validModes: Mode[] = ['build', 'recover', 'reflect', 'flow'];
+    const validModes: Mode[] = ['build', 'flow', 'restore'];
     if (storedMode && validModes.includes(storedMode)) {
       return storedMode;
     }
@@ -86,6 +91,7 @@ export function OrbitProvider({ children }: OrbitProviderProps) {
   // Modals
   const [showModeSwitcher, setShowModeSwitcher] = useState(false);
   const [showAddTaskModal, setShowAddTaskModal] = useState(false);
+  const [initialTaskData, setInitialTaskData] = useState<Partial<Task> | null>(null);
   
   // Tasks
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -118,6 +124,14 @@ export function OrbitProvider({ children }: OrbitProviderProps) {
 
   // Focus streak
   const [focusStreak, setFocusStreak] = useState<boolean[]>([true, true, false, false, false, false, false]);
+
+  // AI Suggestions
+  const [aiSuggestions, setAiSuggestions] = useState<AISuggestion[]>([]);
+
+  const openAddTaskModalWithData = (data: Partial<Task>) => {
+    setInitialTaskData(data);
+    setShowAddTaskModal(true);
+  };
 
   // Load initial data from the API
   useEffect(() => {
@@ -296,179 +310,112 @@ export function OrbitProvider({ children }: OrbitProviderProps) {
       const newStreak = [...prevStreak];
       newStreak[6] = true; // Mark today as active
       // TODO: Implement logic for shifting streak days when a new day starts
-      // For now, this just ensures 'today' is marked if a task is done.
-      // A more robust solution would involve checking dates.
       return newStreak;
     });
   };
 
   // Send a message in the chat
   const sendMessage = async (content: string) => {
-    // Add user message to state
     const userMessage: Message = {
       id: generateId(),
       role: "user",
       content,
-      timestamp: new Date()
+      timestamp: new Date(),
     };
-    
-    setMessages(prev => [...prev, userMessage]);
-    
-    // Pre-defined responses for common queries
-    const aiResponses: Record<string, string> = {
-      "Need help deciding?": "Let's break down your options. What choices are you trying to decide between?",
-      "Reframe task": "Sometimes changing how we view a task can make it more approachable. What task would you like to reframe?",
-      "Clear mental fog": "Let's clear that mental fog. Take a deep breath. What's one small, concrete step you could take right now?"
-    };
-    
-    let responseContent = "";
-    
+    setMessages((prevMessages) => [...prevMessages, userMessage]);
+
+    let assistantApiContent: AssistantChatResponse;
+
     try {
-      if (aiResponses[content]) {
-        // Use predefined response for common queries
-        responseContent = aiResponses[content];
-        
-        // Still send to the API for tracking/learning
-        // The userMessage is already added outside/before this try-catch for predefined responses.
-        // For non-predefined, we add it here if not already added, or ensure it's managed consistently.
-        // For simplicity, assuming userMessage is added once before try block as per original structure.
+      // Prepare context for the AI
+      const assistantContext = {
+        mode,
+        motivation: mood, // Mapping mood to motivation for AI context
+        energy,
+        tasks: tasks.map(task => ({
+          id: task.id,
+          title: task.title,
+          description: task.description,
+          priority: task.priority,
+          due: task.dueDate ? formatDueDate(task.dueDate) : null,
+          status: task.status,
+          estimatedTime: task.estimatedTime,
+          tags: task.tags,
+        })),
+      };
 
-      } else {
-        // This is the path for AI-generated responses (not predefined)
-        
-        // 1. Filter and select relevant tasks
-        const relevantTasks = tasks
-          .filter(task => task.status === "todo")
-          .sort((a, b) => {
-            if (a.priority === "high" && b.priority !== "high") return -1;
-            if (a.priority !== "high" && b.priority === "high") return 1;
-            if (a.dueDate && b.dueDate) return a.dueDate.getTime() - b.dueDate.getTime();
-            if (a.dueDate) return -1;
-            if (b.dueDate) return 1;
-            return 0;
-          })
-          .slice(0, 5); // Max 5 relevant tasks
+      assistantApiContent = await sendMessageToAssistant(content, assistantContext);
+      
+      const assistantMessage: Message = {
+        id: generateId(),
+        role: "assistant",
+        content: assistantApiContent.content,
+        timestamp: new Date(),
+      };
+      setMessages((prevMessages) => [...prevMessages, assistantMessage]);
+      setAiSuggestions(assistantApiContent.suggestions || []);
 
-        // 2. Transform tasks into AssistantTaskContext format
-        const assistantTasks = relevantTasks.map(task => {
-          const pendingSubtasks = task.subtasks?.filter(st => !st.done) || [];
-          return {
-            id: task.id,
-            title: task.title,
-            description: task.description,
-            priority: task.priority as string,
-            due: task.dueDate ? formatDueDate(task.dueDate) : null,
-            status: task.status,
-            estimatedTime: task.estimatedTime,
-            pendingSubtaskCount: pendingSubtasks.length,
-            pendingSubtaskTitles: pendingSubtasks.slice(0, 3).map(st => st.title),
-            tags: task.tags,
-          };
-        });
-
-        // 3. Prepare the full AI context
-        const aiContext = {
-          mode: mode,
-          motivation: mood,
-          energy: energy,
-          tasks: assistantTasks,
-        };
-
-        // 4. Call the AI assistant with rich context
-        const aiResponseObject = await sendMessageToAssistant(content, aiContext);
-        console.log('AI Response Object:', JSON.stringify(aiResponseObject, null, 2)); // Log the full AI response
-
-        responseContent = aiResponseObject.content; // Default chat message
-
-        // Handle actions from AI, like task updates/reframes
-        if (aiResponseObject.action && aiResponseObject.action.type === 'REFRame_TASK' && aiResponseObject.action.taskId) {
-          const taskToUpdate = tasks.find(t => t.id === aiResponseObject.action.taskId);
-          if (taskToUpdate) {
-            let reframeText = "Could not extract reframe text.";
-            if (typeof aiResponseObject.action.reframe === 'string') {
-              reframeText = aiResponseObject.action.reframe;
-            } else if (aiResponseObject.action.reframe && typeof aiResponseObject.action.reframe.suggestion === 'string') {
-              reframeText = aiResponseObject.action.reframe.suggestion;
-            } else if (aiResponseObject.action.reframe && typeof aiResponseObject.action.reframe.text === 'string') {
-              reframeText = aiResponseObject.action.reframe.text;
-            }
-            const newDescription = `Refram_e_: ${reframeText}`;
-            updateTask({ ...taskToUpdate, description: newDescription });
-            // Optionally, refine responseContent if the action implies a specific chat message
-            // For now, the main 'content' from AI is used for chat.
-          }
-        }
-
-      }
     } catch (error) {
       console.error("Error sending message or getting AI response:", error);
-      responseContent = "I'm here to help you maintain momentum. What specific challenge are you facing right now?";
+      const errorMessage: Message = {
+        id: generateId(),
+        role: "assistant",
+        content: "Sorry, I encountered an issue. Please try again.",
+        timestamp: new Date(),
+      };
+      setMessages((prevMessages) => [...prevMessages, errorMessage]);
+      setAiSuggestions([]); // Clear suggestions on error
     }
-    
-    // Add AI response to messages
-    const aiMessage: Message = {
-      id: generateId(),
-      role: "assistant",
-      content: responseContent, // This will be aiResponseObject.content or the error message
-      timestamp: new Date()
-    };
-    
-    setMessages(prev => [...prev, aiMessage]);
   };
 
-  const setMode = (newMode: Mode) => { // Parameter type is Mode
-    console.log('Setting mode to:', newMode);
+  const setModeWithStorage = (newMode: Mode) => {
     localStorage.setItem('orbitMode', newMode);
     setModeState(newMode);
   };
 
-  const setMood = (newMood: Mood) => { // Parameter type is Mood, no undefined
-    console.log('Setting mood to:', newMood);
+  const setMoodWithStorage = (newMood: Mood) => {
     localStorage.setItem('orbitMood', newMood);
     setMoodState(newMood);
   };
 
-  const setEnergy = (newEnergy: number) => {
+  const setEnergyWithStorage = (newEnergy: number) => {
     const clampedEnergy = Math.max(0, Math.min(100, newEnergy));
-    console.log('Setting energy to:', clampedEnergy);
     localStorage.setItem('orbitEnergy', clampedEnergy.toString());
     setEnergyState(clampedEnergy);
   };
 
   const value = {
-    // App state
     mode,
-    setMode: setModeState,
+    setMode: setModeWithStorage,
     mood,
-    setMood: setMoodState,
+    setMood: setMoodWithStorage,
     energy,
-    setEnergy: setEnergyState,
+    setEnergy: setEnergyWithStorage,
     started,
     startApp,
-    // Navigation
     showAppNavigation,
     setShowAppNavigation,
-    // Modals
     showModeSwitcher,
     setShowModeSwitcher,
     showAddTaskModal,
     setShowAddTaskModal,
-    // Tasks
     tasks,
     setTasks,
     isLoadingTasks,
     addTask,
     updateTaskStatus,
     updateTask,
-    // Reflections
     reflections,
-    addReflection, // This should now refer to the implemented function
-    // Chat
+    addReflection,
     messages,
     sendMessage,
-    // Focus streak
+    aiSuggestions,
+    setAiSuggestions,
     focusStreak,
     recordTaskCompletionForStreak,
+    initialTaskData,
+    openAddTaskModalWithData,
+    setInitialTaskData,
   };
 
   return <OrbitContext.Provider value={value}>{children}</OrbitContext.Provider>;

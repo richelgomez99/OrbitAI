@@ -77,10 +77,13 @@ Output format should be a JSON object with a "subtasks" array.`
  * Interface for AI-suggested tasks.
  */
 export interface AISuggestion {
+  type: 'new_task' | 'chat_prompt'; // Type of suggestion
   title: string;
-  priority?: 'low' | 'medium' | 'high';
-  mode?: 'build' | 'maintain' | 'recover' | 'reflect';
-  // Add other fields if the AI should suggest them, e.g., estimatedTime, description_hint
+  description?: string; // For 'new_task'
+  priority?: 'low' | 'medium' | 'high'; // For 'new_task'
+  estimated_time?: string; // For 'new_task', e.g., "1 hour", "30 minutes"
+  tags?: string[]; // For 'new_task'
+  mode?: 'build' | 'flow' | 'restore'; // Can apply to both
 }
 
 /**
@@ -100,7 +103,7 @@ export interface AIChatResponse {
 export async function generateChatResponse(
   userMessage: string,
   userContext: {
-    mode: 'build' | 'maintain' | 'recover' | 'reflect';
+    mode: 'build' | 'flow' | 'restore';
     mood: 'stressed' | 'motivated' | 'calm';
     energy: number;
     recentMessages?: Array<{role: string, content: string}>;
@@ -112,11 +115,11 @@ Current user context:
 - Mode: ${userContext.mode} (${
       userContext.mode === 'build' 
         ? 'User is focused on making progress and completing tasks. Be direct, action-oriented, and encouraging.'
-        : userContext.mode === 'recover'
+        : userContext.mode === 'restore'
         ? 'User needs support during low energy/motivation periods. Be gentle, validating, and suggest small, achievable actions.'
-        : userContext.mode === 'reflect'
-        ? 'User is in a reflective state, thinking about their work and process. Ask thought-provoking questions and encourage deeper insights.'
-        : 'User is maintaining steady progress. Offer balanced guidance to help them stay consistent.'
+        : userContext.mode === 'flow'
+        ? 'User is in a state of focused, energized work (flow). Offer guidance to sustain this state or suggest relevant next micro-actions within the flow.'
+        : 'User is in an unhandled mode. Offer general support.'
     })
 - Mood: ${userContext.mood} (${
       userContext.mood === 'stressed' 
@@ -133,7 +136,7 @@ Current user context:
         : 'User has high energy. Help them channel this productively without burning out.'
     })
 
-Your role is to be an emotionally intelligent productivity assistant. Your primary goal is to provide a supportive, encouraging chat response (2-4 sentences) that matches the user's current mood and energy level, offering practical micro-actions they can take to maintain momentum.
+Your role is to be an emotionally intelligent productivity assistant. Your primary goal is to provide a supportive, encouraging chat response (2-4 sentences) that matches the user's current mood and energy level, offering practical micro-actions they can take to sustain momentum.
 
 Additionally, if the conversation naturally leads to potential new tasks that could help the user, you may suggest 1-2 such tasks. These suggestions should be directly relevant to the user's current goals or challenges as discussed.
 
@@ -151,11 +154,30 @@ Your entire response MUST be a single JSON object with the following structure:
   "suggested_tasks": [] // Optional: An array of 0-2 suggested task objects. Omit or leave empty if no relevant tasks are suggested.
 }
 
-For suggested_tasks, each task object should have a 'title'. Optionally, it can include 'priority' ('low', 'medium', 'high') and 'mode' ('build', 'maintain', 'recover', 'reflect').
+For suggested_tasks, each task object MUST have a 'type' and a 'title'.
+- If type is 'chat_prompt', it's a simple text suggestion for the user to send as a message.
+- If type is 'new_task', it's a suggestion to create a new task. It can optionally include 'description', 'priority' ('low', 'medium', 'high'), 'estimated_time' (e.g., "1 hour", "30 mins"), and 'tags' (an array of strings).
+
 Example for suggested_tasks:
 "suggested_tasks": [
-  {"title": "Draft initial outline for the report", "priority": "medium", "mode": "build"},
-  {"title": "Schedule a 15-min break"}
+  {
+    "type": "new_task",
+    "title": "Draft initial outline for the report",
+    "description": "Create a structured outline covering all key sections of the report.",
+    "priority": "medium",
+    "estimated_time": "45 minutes",
+    "tags": ["report", "writing"],
+    "mode": "build"
+  },
+  {
+    "type": "chat_prompt",
+    "title": "Tell me more about how to manage my energy levels."
+  },
+  {
+    "type": "new_task", // A simpler new task suggestion
+    "title": "Schedule a 15-min break",
+    "priority": "low"
+  }
 ]
 
 Do NOT include any text outside of this JSON object structure.
@@ -213,7 +235,7 @@ Do NOT include any text outside of this JSON object structure.
  */
 export async function generateMotivationalQuote(
   context: {
-    mode: 'build' | 'maintain' | 'recover' | 'reflect';
+    mode: 'build' | 'flow' | 'restore';
     mood: 'stressed' | 'motivated' | 'calm';
   }
 ): Promise<string> {
@@ -221,13 +243,11 @@ export async function generateMotivationalQuote(
     const prompt = `Create a short, inspiring quote (maximum 15 words) for someone who is feeling ${
       context.mood
     } and is in ${context.mode} mode (${
-      context.mode === 'build' 
+      context.mode === 'build'
         ? 'focused on making progress'
-        : context.mode === 'recover'
+        : context.mode === 'restore'
         ? 'needing support during low energy'
-        : context.mode === 'reflect'
-        ? 'in a reflective state'
-        : 'maintaining steady progress'
+        : 'maintaining steady progress' // Default for 'flow'
     }).`;
 
     const response = await openai.chat.completions.create({
@@ -277,8 +297,8 @@ Tailor message to their mode:
 export async function generateTaskReframing(
   taskTitle: string,
   taskDescription?: string,
-  mode: string = 'build',
-  mood: string = 'motivated'
+  mode: 'build' | 'flow' | 'restore' = 'build',
+  mood: 'stressed' | 'motivated' | 'calm' = 'motivated'
 ): Promise<{ title: string; description: string }> {
   try {
     // Check if API key exists

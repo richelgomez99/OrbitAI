@@ -35,15 +35,13 @@ export default function DailyFlowHub() {
   
   const modeColors: Record<Mode, string> = {
     build: "border-[#9F7AEA]/30 text-[#9F7AEA]", // Purple
-    recover: "border-[#FC8181]/30 text-[#FC8181]", // Red
-    reflect: "border-cyan-500/30 text-cyan-400", // Cyan/Teal for Reflect
+    restore: "border-[#FC8181]/30 text-[#FC8181]", // Red
     flow: "border-green-500/30 text-green-400" // Green
   };
   
   const modeIcons: Record<Mode, string> = {
     build: "⚡",
-    recover: "❤️‍🩹",
-    reflect: "🧠", // Brain icon for Reflect
+    restore: "❤️‍🩹",
     flow: "🌊"
   };
   

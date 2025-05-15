@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Check, Clock, MoreHorizontal, Tag, Cpu, RefreshCcw, Zap, Edit } from "lucide-react";
-import { cn, formatDueDate, Task, Mode } from "@/lib/utils";
+import { Check, Clock, MoreHorizontal, Tag, Cpu, RefreshCcw, Zap, Edit, MessageSquareText, Sparkles } from "lucide-react";
+import { cn, formatDueDate, Task, Mode, modeColors } from "@/lib/utils";
 import { motion } from "framer-motion";
 import { Badge } from "@/components/ui/badge";
 import { 
@@ -40,9 +40,10 @@ export function TaskCard({ task, onStatusChange }: TaskCardProps) {
   };
   
   const modeColors: Record<Mode, string> = {
-    build: "bg-[#9F7AEA]/10 text-[#9F7AEA] border-[#9F7AEA]/20", // Purple
-    restore: "bg-[#FC8181]/10 text-[#FC8181] border-[#FC8181]/20", // Red
-    flow: "bg-green-500/10 text-green-400 border-green-500/20" // Green
+    build: "bg-[#9F7AEA]/10 text-[#9F7AEA] border-[#9F7AEA]/20",    // Purple
+    recover: "bg-[#FC8181]/10 text-[#FC8181] border-[#FC8181]/20",  // Red
+    reflect: "bg-blue-400/10 text-blue-300 border-blue-400/20",    // Light Blue
+    flow: "bg-green-500/10 text-green-400 border-green-500/20"     // Green
   };
   
   const handleReframeTask = () => {
@@ -57,6 +58,29 @@ export function TaskCard({ task, onStatusChange }: TaskCardProps) {
   const handleSaveTask = (updatedTask: Task) => {
     updateTask(updatedTask);
     setIsEditDialogOpen(false);
+  };
+
+  const handleSendToChat = (promptType: "break_down" | "get_suggestions") => {
+    let promptText = ""; // Renamed variable to avoid conflict
+    if (promptType === "break_down") {
+      promptText = `Can you help me break down the task: "${task.title}"?`;
+      if (task.description) {
+        // Check if description is string before appending
+        const desc = typeof task.description === 'string' ? task.description : JSON.stringify(task.description);
+        promptText += ` Description: "${desc}"`;
+      }
+    } else if (promptType === "get_suggestions") {
+      promptText = `I'm looking for suggestions or next steps for the task: "${task.title}".`;
+      if (task.description) {
+        const desc = typeof task.description === 'string' ? task.description : JSON.stringify(task.description);
+        promptText += ` Current description: "${desc}"`;
+      }
+    }
+
+    if (promptText) {
+      sendMessage(promptText);
+      navigate("/chat");
+    }
   };
   
   const getFrictionIndicator = () => {
@@ -94,7 +118,7 @@ export function TaskCard({ task, onStatusChange }: TaskCardProps) {
         onOpenChange={setIsEditDialogOpen}
         onSave={handleSaveTask}
       />
-      <Card className={`p-4 mb-4 hover:translate-x-1 border-l-2 ${task.mode ? modeColors[task.mode as Mode].split(' ')[1] : ''}`}>
+      <Card className={`p-4 mb-4 hover:translate-x-1 border-l-2 ${task.mode && modeColors[task.mode as Mode] ? modeColors[task.mode as Mode].split(' ')[1] : 'border-neutral-700'}`}>
         <div className="flex justify-between items-start mb-2">
           <h3 className="font-medium text-primary">{task.title}</h3>
           <div className="flex items-center">
@@ -128,6 +152,15 @@ export function TaskCard({ task, onStatusChange }: TaskCardProps) {
                 <DropdownMenuItem onClick={() => onStatusChange(task.id, "snoozed")}>
                   <Clock className="mr-2 h-4 w-4" />
                   <span>Snooze</span>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => handleSendToChat("break_down")}>
+                  <MessageSquareText className="mr-2 h-4 w-4" />
+                  <span>Break down in Chat</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleSendToChat("get_suggestions")}>
+                  <Sparkles className="mr-2 h-4 w-4" />
+                  <span>Get suggestions in Chat</span>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -171,7 +204,12 @@ export function TaskCard({ task, onStatusChange }: TaskCardProps) {
         
         {task.description && (
           <div className="bg-surface/50 rounded-xl p-3 mb-3">
-            <p className="text-sm text-primary italic">{task.description}</p>
+            <p className="text-sm text-primary italic">
+                  {typeof task.description === 'string' ? task.description : 
+                   (task.description && typeof task.description === 'object' && 'title' in task.description) ? 
+                   `${(task.description as any).title}${ (task.description as any).description ? `: ${(task.description as any).description}` : ''}` :
+                   (task.description && typeof task.description === 'object') ? JSON.stringify(task.description) : ''}
+                </p>
           </div>
         )}
         

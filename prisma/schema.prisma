@@ -1,0 +1,64 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id          String         @id @default(cuid())
+  email       String         @unique
+  createdAt   DateTime       @default(now())
+  reflections Reflection[]
+  sessions    FocusSession[]
+  tasks       Task[]
+  messages    Message[]
+}
+
+model Reflection {
+  id        String   @id @default(cuid())
+  mood      String
+  energy    Int
+  comment   String?
+  createdAt DateTime @default(now())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+}
+
+model FocusSession {
+  id        String   @id @default(cuid())
+  mode      String
+  startedAt DateTime
+  endedAt   DateTime?
+  createdAt DateTime @default(now())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+}
+
+model Task {
+  id              String    @id @default(cuid())
+  title           String
+  content         String?   // Mapped from Drizzle's 'description'
+  status          String    // E.g., "todo", "inprogress", "done"
+  priority        String?   // E.g., "high", "medium", "low"
+  estimatedTime   Int?      // In minutes
+  mode            String?   // E.g., "build", "flow", "restore"
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  userId          String    // Assuming tasks must have a user
+  user            User      @relation(fields: [userId], references: [id])
+  messages        Message[] @relation("TaskMessages") // Explicit relation name
+}
+
+model Message {
+  id            String    @id @default(cuid())
+  role          String    // "user" or "assistant"
+  content       String
+  createdAt     DateTime  @default(now())
+  userId        String?   // Made optional as seed data had null userId for messages
+  user          User?     @relation(fields: [userId], references: [id])
+  taskId        String?   // Optional: if message is related to a task
+  task          Task?     @relation(fields: [taskId], references: [id], name: "TaskMessages")
+}

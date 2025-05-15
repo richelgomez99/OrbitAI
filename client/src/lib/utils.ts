@@ -5,7 +5,7 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export type Mode = "build" | "recover" | "reflect" | "flow";
+export type Mode = "build" | "flow" | "restore";
 export type Mood = "stressed" | "motivated" | "calm";
 export type Priority = "low" | "medium" | "high";
 
@@ -99,21 +99,15 @@ export function getModeTheme(mode: Mode): ModeTheme {
   switch(mode) {
     case 'build':
       return { accentHsl: '260 81% 61%', label: 'Build', emoji: '🛠️', description: 'Execute, progress, deep work.' }; // Electric Indigo
-    case 'recover':
-      return { accentHsl: '271 70% 70%', label: 'Recover', emoji: '💆‍♀️', description: 'Regain energy, ease in.' }; // Soft Purple for recovery
-    case 'reflect':
-      return { accentHsl: '337 82% 61%', label: 'Reflect', emoji: '📓', description: 'Self-awareness, pattern tracking.' }; // Rose Pink for introspection
     case 'flow':
       return { accentHsl: '200 75% 55%', label: 'Flow', emoji: '🌊', description: 'Light, reactive, intuitive execution.' }; // Cool Blue for calm efficiency
+    case 'restore':
+      return { accentHsl: '271 70% 70%', label: 'Restore', emoji: '💆‍♀️', description: 'Regain energy, ease in.' }; // Soft Purple for recovery
     default:
       // Fallback, though theoretically unreachable with TypeScript
-      console.warn(`Unknown mode: ${mode}, falling back to build theme.`);
+      const _exhaustiveCheck: never = mode;
+      console.warn(`Unknown mode: ${_exhaustiveCheck}, falling back to build theme.`);
       return { accentHsl: '260 81% 61%', label: 'Unknown', emoji: '❓', description: 'Error.' };
-      return {
-        accentHsl: '260 81% 61%', // #7C3AED Electric Indigo
-        label: 'Build',
-        emoji: '⚡️'
-      };
   }
 }
 
@@ -125,6 +119,39 @@ export function getMoodEmoji(mood: Mood): string {
     case 'calm': return '😌';
     default: return '😊';
   }
+}
+
+// Mode color utility for TaskCard borders and backgrounds
+export const modeColors: Record<Mode, string> = {
+  build: "bg-purple-600/10 border-purple-500",
+  flow: "bg-sky-600/10 border-sky-500",
+  restore: "bg-violet-600/10 border-violet-500", // Corresponds to 'Soft Purple' in design spec
+};
+
+// Helper function to parse estimated time string to minutes
+export function parseEstimatedTime(timeString?: string): number | undefined {
+  if (!timeString) return undefined;
+
+  const lowerTimeString = timeString.toLowerCase();
+  let totalMinutes = 0;
+
+  const hourMatch = lowerTimeString.match(/(\d+)\s*hour(s?)/);
+  if (hourMatch && hourMatch[1]) {
+    totalMinutes += parseInt(hourMatch[1], 10) * 60;
+  }
+
+  const minuteMatch = lowerTimeString.match(/(\d+)\s*min(ute)?(s?)/);
+  if (minuteMatch && minuteMatch[1]) {
+    totalMinutes += parseInt(minuteMatch[1], 10);
+  }
+  
+  // Handle cases like "1.5 hours"
+  const decimalHourMatch = lowerTimeString.match(/(\d+\.\d+)\s*hour(s?)/);
+  if (decimalHourMatch && decimalHourMatch[1] && !hourMatch) { // Avoid double counting if "1 hour" also present
+    totalMinutes += parseFloat(decimalHourMatch[1]) * 60;
+  }
+
+  return totalMinutes > 0 ? totalMinutes : undefined;
 }
 
 // Energy level formatting and styling

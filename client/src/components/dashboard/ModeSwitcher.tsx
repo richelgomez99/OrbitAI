@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/dialog';
 
 // Define the order of modes in the switcher
-const availableModes: Mode[] = ['build', 'recover', 'reflect', 'flow'];
+const availableModes: Mode[] = ['build', 'flow', 'restore'];
 
 const ModeSwitcher: React.FC = () => {
   const { mode: activeMode, setMode, showModeSwitcher, setShowModeSwitcher } = useOrbit();

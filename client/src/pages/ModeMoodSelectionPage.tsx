@@ -3,6 +3,7 @@ import { useLocation, Link } from 'wouter'; // Link for navigation
 import { useOrbit } from '@/context/orbit-context';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Textarea } from '@/components/ui/textarea';
 import { Slider } from '@/components/ui/slider';
 import { cn, Mode } from '@/lib/utils';
 import { CloudLightning, Heart, Brain, Waves } from 'lucide-react';
@@ -18,11 +19,11 @@ const ModeMoodSelectionPage: React.FC = () => {
   const [selectedMode, setSelectedMode] = useState(mode || 'build'); // Default to 'build'
   const [selectedMood, setSelectedMood] = useState(mood || 'motivated'); // Default to 'motivated'
   const [currentEnergy, setCurrentEnergy] = useState(energy || 70); // Default to 70
+  const [journalEntry, setJournalEntry] = useState('');
 
   const modeIcons: Record<Mode, React.ElementType> = {
     build: CloudLightning,
-    recover: Heart,
-    reflect: Brain,
+    restore: Heart,
     flow: Waves,
   };
 
@@ -42,6 +43,8 @@ const ModeMoodSelectionPage: React.FC = () => {
     setMode(selectedMode as Mode); // Ensure type safety
     setMood(selectedMood as 'stressed' | 'motivated' | 'calm');
     setEnergy(currentEnergy);
+    console.log("Journal Entry:", journalEntry); // Log journal entry
+    // TODO: Consider passing journalEntry to context if needed by other parts of the app
     navigate('/app'); // Navigate to the main app page or dashboard
   };
 
@@ -63,7 +66,7 @@ const ModeMoodSelectionPage: React.FC = () => {
           <div>
             <h3 className="text-lg font-semibold mb-3 text-center text-neutral-300">Mode Picker</h3>
             <div className="grid grid-cols-4 gap-3">
-              {(['build', 'recover', 'reflect', 'flow'] as Mode[]).map((m) => (
+              {(['build', 'restore', 'flow'] as Mode[]).map((m) => (
                 <Button
                   key={m}
                   variant={selectedMode === m ? 'default' : 'outline'}
@@ -120,6 +123,16 @@ const ModeMoodSelectionPage: React.FC = () => {
               <span className="text-xl">🔥</span>
             </div>
             <p className='text-center text-neutral-400 mt-2'>{currentEnergy}%</p>
+          </div>
+
+          <div>
+            <h3 className="text-lg font-semibold mb-3 text-center text-neutral-300">Quick Thoughts / Journal</h3>
+            <Textarea
+              placeholder="Optional: Jot down any quick thoughts, goals for this session, or anything on your mind..."
+              value={journalEntry}
+              onChange={(e) => setJournalEntry(e.target.value)}
+              className="bg-neutral-700 border-neutral-600 text-neutral-200 min-h-[100px] placeholder:text-neutral-400 focus:border-purple-500"
+            />
           </div>
 
           <Button 

@@ -3,7 +3,7 @@ import { useOrbit } from "@/context/orbit-context";
 import { motion } from "framer-motion";
 
 export default function ChatView() {
-  const { messages, sendMessage } = useOrbit();
+  const { messages, sendMessage, aiSuggestions } = useOrbit();
 
   return (
     <div className="page-transition animate-fade-in px-4 pb-24 pt-8">
@@ -16,6 +16,7 @@ export default function ChatView() {
         <ChatAssistant 
           messages={messages} 
           onSendMessage={sendMessage} 
+          aiSuggestions={aiSuggestions} // Pass suggestions to the component
         />
       </motion.div>
     </div>

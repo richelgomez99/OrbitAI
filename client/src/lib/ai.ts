@@ -1,5 +1,5 @@
 import { apiRequest } from "./queryClient";
-import { Mode, Mood } from "./utils";
+import { Mode, Mood, Priority } from "./utils"; // Added Priority for completeness, Mode is key here
 
 // Define context structures for sending messages to the AI assistant
 interface AssistantTaskContext {
@@ -67,10 +67,32 @@ interface AssistantContext {
   tasks: AssistantTaskContext[]; // Uses the updated, richer AssistantTaskContext
 }
 
+// Client-side interface for AI-suggested tasks
+export interface AISuggestion {
+  type: 'new_task' | 'chat_prompt'; // Type of suggestion
+  title: string;
+  description?: string; // For 'new_task'
+  priority?: 'low' | 'medium' | 'high'; // For 'new_task'
+  estimated_time?: string; // For 'new_task', e.g., "1 hour", "30 minutes"
+  tags?: string[]; // For 'new_task'
+  mode?: Mode; // Can apply to both, ensures alignment with app's core Mode type
+}
+
+// Client-side interface for the assistant's full response
+export interface AssistantChatResponse {
+  content: string;
+  suggestions?: AISuggestion[];
+  // Include other potential fields from the backend's 'assistant' object if necessary
+  // For example, if the backend also sends id, role, timestamp for the assistant message object:
+  // id?: number;
+  // role?: 'assistant'; 
+  // timestamp?: string;
+}
+
 export async function sendMessageToAssistant(
   content: string,
   context: AssistantContext
-): Promise<any> { // Changed return type from Promise<string> to Promise<any>
+): Promise<AssistantChatResponse> {
   try {
     const response = await apiRequest("POST", "/api/messages", {
       content,
@@ -81,9 +103,15 @@ export async function sendMessageToAssistant(
     });
     
     const data = await response.json();
-    return data.assistant; // Return the whole assistant object
+    // data.assistant is expected to match AssistantChatResponse structure from the server
+    if (data.assistant && typeof data.assistant.content === 'string') {
+      return data.assistant as AssistantChatResponse;
+    }
+    // Fallback or error handling if the structure is not as expected
+    console.error('Received unexpected assistant response structure:', data);
+    return { content: "Sorry, I encountered an issue processing the response.", suggestions: [] };
   } catch (error) {
     console.error("Error sending message to assistant:", error);
-    return { content: "I'm here to help you maintain momentum. What specific challenge are you facing right now?" }; // Return as an object to match new signature
+    return { content: "I'm here to help you maintain momentum. What specific challenge are you facing right now?", suggestions: [] };
   }
 }

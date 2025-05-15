@@ -18,15 +18,15 @@ import ModeMoodSelectionPage from '@/pages/ModeMoodSelectionPage'; // Added impo
 import TasksPage from "@/pages/TasksPage";
 import SettingsPage from "@/pages/SettingsPage";
 import HelpPage from "@/pages/HelpPage";
-import Header from "@/components/layout/Header";
-import Footer from "@/components/layout/Footer";
-import AppNavigation from "@/components/app-navigation";
+import { StickyBottomNav } from "@/components/sticky-bottom-nav";
+import MainLayout from "@/components/layout/MainLayout";
 import { useOrbit, OrbitProvider } from "@/context/orbit-context";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
 import { useEffect, useState } from "react"; // Keep only one useState import
 import { useLocation } from "wouter";
 import AddTaskModal from "@/components/add-task-modal";
 import ProtectedRoute from "@/components/router/ProtectedRoute";
+
 
 const HomeOrApp: React.FC = () => {
   const { isAuthenticated } = useAuth();
@@ -48,30 +48,33 @@ function AppRoutes() {
   // };
   
   useEffect(() => {
-    // Only show navigation if app is started and not on landing page
-    setShowAppNavigation(started && location !== "/");
-  }, [started, location, setShowAppNavigation]);
+    // Only show navigation if app is started, authenticated, and not on a public page like landing, login, or signup
+    const publicPaths = ["/", "/login", "/signup"];
+    setShowAppNavigation(started && isAuthenticated && !publicPaths.includes(location));
+  }, [started, location, isAuthenticated, setShowAppNavigation]);
 
   return (
     <>
       <Switch>
         <Route path="/" component={HomeOrApp} />
+        <ProtectedRoute path="/build" component={DashboardView} />
         <Route path="/flow" component={DailyFlowHub} />
-        <Route path="/dashboard" component={DashboardView} />
+        <ProtectedRoute path="/restore" component={DashboardView} />
+        <ProtectedRoute path="/dashboard" component={DashboardView} />
         <Route path="/reflect" component={ReflectionView} />
         <Route path="/chat" component={ChatView} />
         <Route path="/signup" component={SignupPage} />
         <Route path="/login" component={LoginPage} />
         <ProtectedRoute path="/app" component={AppPage} />
         <ProtectedRoute path="/onboarding" component={OnboardingFlow} />
-        <ProtectedRoute path="/mode-mood-select" component={ModeMoodSelectionPage} /> {/* Added route */}
+        <ProtectedRoute path="/mode-mood-select" component={ModeMoodSelectionPage} />
         <ProtectedRoute path="/tasks" component={TasksPage} />
         <ProtectedRoute path="/settings" component={SettingsPage} />
         <ProtectedRoute path="/help" component={HelpPage} />
         <Route component={NotFound} />
       </Switch>
       
-      {showAppNavigation && <AppNavigation />}
+      {showAppNavigation && <StickyBottomNav />}
       <AddTaskModal />
       {isAuthenticated && location.startsWith('/dashboard') && <ModeSwitcher />} {/* ModeSwitcher now uses context */}
     </>
@@ -87,13 +90,11 @@ function App() {
         <OrbitProvider>
           <TooltipProvider>
           <Toaster />
-          <div className="orbit-app flex flex-col min-h-screen">
-            <Header />
-            <main className="flex-grow"><AppRoutes /></main>
-            <Footer />
-          </div>
-          <Toaster />
-          <ModeSwitcher /> {/* Render ModeSwitcher globally */}
+          <MainLayout>
+            <AppRoutes />
+          </MainLayout>
+          <ModeSwitcher /> {/* Render ModeSwitcher globally if it's a modal type component */}
+          {/* Redundant Toaster removed, one is enough */}
           </TooltipProvider>
         </OrbitProvider>
       </AuthProvider>

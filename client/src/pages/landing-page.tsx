@@ -42,20 +42,13 @@ export default function LandingPage() {
           </Button>
           
           <Button
-            variant={mode === "recover" ? "modeActive" : "mode"}
-            onClick={() => setMode("recover")}
+            variant={mode === "restore" ? "modeActive" : "mode"}
+            onClick={() => setMode("restore")}
           >
             <Heart className="h-5 w-5 text-[#FC8181] mr-2" />
-            <span className="font-medium">Recover</span>
+            <span className="font-medium">Restore</span>
           </Button>
-          
-          <Button
-            variant={mode === "reflect" ? "modeActive" : "mode"}
-            onClick={() => setMode("reflect")}
-          >
-            <Brain className="h-5 w-5 text-[#76E4F7] mr-2" />
-            <span className="font-medium">Reflect</span>
-          </Button>
+
         </div>
       </div>
       

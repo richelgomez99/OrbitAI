@@ -3,7 +3,8 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Mic, Send, Brain, RefreshCcw, MessageSquareMore, Clock, Pause } from "lucide-react";
-import { Message, generateId, Mode, Mood, getModeTheme, getMoodEmoji, getEnergyDisplay } from "@/lib/utils";
+import { Message, generateId, Mode, Mood, getModeTheme, getMoodEmoji, getEnergyDisplay, Task, Priority, parseEstimatedTime } from "@/lib/utils";
+import type { AISuggestion } from "@/lib/ai"; // Import AISuggestion type
 import { motion, AnimatePresence } from "framer-motion";
 import { useOrbit } from "@/context/orbit-context";
 import { Badge } from "@/components/ui/badge";
@@ -11,12 +12,13 @@ import { Badge } from "@/components/ui/badge";
 interface ChatAssistantProps {
   messages: Message[];
   onSendMessage: (content: string) => void;
+  aiSuggestions?: AISuggestion[]; // Add prop for AI suggestions
 }
 
-export function ChatAssistant({ messages, onSendMessage }: ChatAssistantProps) {
+export function ChatAssistant({ messages, onSendMessage, aiSuggestions }: ChatAssistantProps) {
   const [message, setMessage] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const { mode, mood, energy } = useOrbit();
+  const { mode, mood, energy, openAddTaskModalWithData } = useOrbit();
   
   // Auto-scroll to bottom of messages
   useEffect(() => {
@@ -82,7 +84,11 @@ export function ChatAssistant({ messages, onSendMessage }: ChatAssistantProps) {
   const theme = getModeTheme(mode);
   const moodEmoji = getMoodEmoji(mood);
   const energyDisplay = getEnergyDisplay(energy);
-  const suggestions = getSuggestions();
+  // Determine which set of suggestions to use
+  const currentSuggestions: (AISuggestion | { text: string; icon?: JSX.Element })[] = 
+    (aiSuggestions && aiSuggestions.length > 0) 
+    ? aiSuggestions 
+    : getSuggestions();
 
   return (
     <div className="flex flex-col h-[85vh]">
@@ -154,18 +160,53 @@ export function ChatAssistant({ messages, onSendMessage }: ChatAssistantProps) {
       
       {/* Quick Suggestions - enhanced with icons and visual appeal */}
       <div className="flex gap-2 mb-5 overflow-x-auto py-2 pb-3 snap-x">
-        {suggestions.map((suggestion) => (
-          <Button
-            key={suggestion.text}
-            variant="outline"
-            size="sm"
-            onClick={() => onSendMessage(suggestion.text)}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-full border border-[hsl(${theme.accentHsl}/0.4)] hover:bg-[hsl(${theme.accentHsl}/0.1)] hover:text-[hsl(${theme.accentHsl})] transition-colors snap-start shadow-sm min-h-[36px]`}
-          >
-            <span className={`text-[hsl(${theme.accentHsl})]`}>{suggestion.icon}</span>
-            <span>{suggestion.text}</span>
-          </Button>
-        ))}
+        {currentSuggestions.map((suggestion, index) => {
+          const isAISuggestion = (s: any): s is AISuggestion => typeof s.type === 'string';
+          
+          let suggestionText: string;
+          let suggestionIcon: JSX.Element | undefined = undefined;
+
+          if (isAISuggestion(suggestion)) {
+            suggestionText = suggestion.type === 'new_task' ? `Create: ${suggestion.title}` : suggestion.title;
+            // You could assign an icon based on suggestion.type or other properties here
+            // e.g., if (suggestion.type === 'new_task') suggestionIcon = <PlusCircle size={14} />;
+          } else {
+            suggestionText = suggestion.text;
+            suggestionIcon = suggestion.icon;
+          }
+
+          return (
+            <Button
+              key={isAISuggestion(suggestion) ? `${suggestion.type}-${suggestion.title}-${index}` : `${suggestionText}-${index}`}
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                if (isAISuggestion(suggestion)) {
+                  if (suggestion.type === 'new_task') {
+                    const taskData: Partial<Task> = {
+                      title: suggestion.title,
+                      description: suggestion.description,
+                      priority: suggestion.priority as Priority, // Assumes AISuggestion priority is compatible
+                      estimatedTime: parseEstimatedTime(suggestion.estimated_time),
+                      tags: suggestion.tags,
+                      mode: suggestion.mode, // Assign mode if present in suggestion
+                      isAiGenerated: true,
+                    };
+                    openAddTaskModalWithData(taskData);
+                  } else { // 'chat_prompt'
+                    onSendMessage(suggestion.title);
+                  }
+                } else { // Static suggestion
+                  onSendMessage(suggestionText);
+                }
+              }}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-full border border-[hsl(${theme.accentHsl}/0.4)] hover:bg-[hsl(${theme.accentHsl}/0.1)] hover:text-[hsl(${theme.accentHsl})] transition-colors snap-start shadow-sm min-h-[36px]`}
+            >
+              {suggestionIcon && <span className={`text-[hsl(${theme.accentHsl})]`}>{suggestionIcon}</span>}
+              <span>{suggestionText}</span>
+            </Button>
+          );
+        })}
       </div>
       
       {/* Chat Input - enhanced with send button */}

@@ -168,9 +168,8 @@ export function EditTaskDialog({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="build">Build</SelectItem>
-                <SelectItem value="maintain">Maintain</SelectItem>
-                <SelectItem value="recover">Recover</SelectItem>
-                <SelectItem value="reflect">Reflect</SelectItem>
+                <SelectItem value="flow">Flow</SelectItem>
+                <SelectItem value="restore">Restore</SelectItem>
               </SelectContent>
             </Select>
           </div>
