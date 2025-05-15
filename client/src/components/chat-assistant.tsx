@@ -89,20 +89,20 @@ export function ChatAssistant({ messages, onSendMessage }: ChatAssistantProps) {
       {/* Context header */}
       <div className="mb-5 flex items-center justify-between">
         <div className="flex flex-wrap gap-2">
-          <Badge className={`${theme.accent} text-white shadow-sm px-3 py-1 text-sm font-medium`}>
+          <Badge className={`bg-[hsl(${theme.accentHsl})] text-white shadow-sm px-3 py-1 text-sm font-medium`}>
             <span className="mr-1.5">{theme.emoji}</span>
-            {theme.modeLabel} Mode
+            {theme.label} Mode
           </Badge>
           <Badge 
             variant="outline" 
-            className={`border ${theme.border} ${theme.text} px-3 py-1 text-sm shadow-sm`}
+            className={`border border-[hsl(${theme.accentHsl}/0.4)] text-[hsl(${theme.accentHsl})] px-3 py-1 text-sm shadow-sm`}
           >
             <span className="mr-1.5">{moodEmoji}</span>
             {mood.charAt(0).toUpperCase() + mood.slice(1)}
           </Badge>
           <Badge 
             variant="outline" 
-            className={`border ${theme.border} ${energyDisplay.color} px-3 py-1 text-sm shadow-sm`}
+            className={`border border-[hsl(${theme.accentHsl}/0.4)] ${energyDisplay.color} px-3 py-1 text-sm shadow-sm`}
           >
             <span className="mr-1.5">{energyDisplay.icon}</span>
             Energy: {energy}%
@@ -123,14 +123,14 @@ export function ChatAssistant({ messages, onSendMessage }: ChatAssistantProps) {
               transition={{ duration: 0.3 }}
             >
               {msg.role === "assistant" && (
-                <div className={`w-9 h-9 rounded-full ${theme.accentLight} flex items-center justify-center shadow-md`}>
-                  <div className={`w-5 h-5 ${theme.text}`}>{theme.emoji}</div>
+                <div className={`w-9 h-9 rounded-full bg-[hsl(${theme.accentHsl}/0.1)] flex items-center justify-center shadow-md`}>
+                  <div className={`w-5 h-5 text-[hsl(${theme.accentHsl})]`}>{theme.emoji}</div>
                 </div>
               )}
               <Card 
                 className={`p-4 max-w-[85%] shadow-md ${
                   msg.role === "assistant" 
-                    ? `rounded-tl-none border-l-2 ${theme.border} ${theme.accentLight} bg-card/90 backdrop-blur-sm`
+                    ? `rounded-tl-none border-l-2 border-[hsl(${theme.accentHsl}/0.4)] bg-[hsl(${theme.accentHsl}/0.1)] bg-card/90 backdrop-blur-sm`
                     : "rounded-tr-none bg-card/70"
                 }`}
               >
@@ -160,9 +160,9 @@ export function ChatAssistant({ messages, onSendMessage }: ChatAssistantProps) {
             variant="outline"
             size="sm"
             onClick={() => onSendMessage(suggestion.text)}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-full border ${theme.border} hover:${theme.accentLight} hover:${theme.text} transition-colors snap-start shadow-sm min-h-[36px]`}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-full border border-[hsl(${theme.accentHsl}/0.4)] hover:bg-[hsl(${theme.accentHsl}/0.1)] hover:text-[hsl(${theme.accentHsl})] transition-colors snap-start shadow-sm min-h-[36px]`}
           >
-            <span className={theme.text}>{suggestion.icon}</span>
+            <span className={`text-[hsl(${theme.accentHsl})]`}>{suggestion.icon}</span>
             <span>{suggestion.text}</span>
           </Button>
         ))}
@@ -174,14 +174,14 @@ export function ChatAssistant({ messages, onSendMessage }: ChatAssistantProps) {
           value={message}
           onChange={(e) => setMessage(e.target.value)}
           placeholder="Send a message..."
-          className={`w-full rounded-full py-3 pl-5 pr-14 border ${theme.border} shadow-md`}
+          className={`w-full rounded-full py-3 pl-5 pr-14 border border-[hsl(${theme.accentHsl}/0.4)] shadow-md text-primary`}
         />
         {message.trim() ? (
           <Button
             type="submit"
             size="icon"
             variant="ghost"
-            className={`absolute right-1.5 top-1.5 w-10 h-10 rounded-full ${theme.accent} ${theme.text} shadow-sm`}
+            className={`absolute right-1.5 top-1.5 w-10 h-10 rounded-full bg-[hsl(${theme.accentHsl})] text-white shadow-sm`}
           >
             <Send className="h-4 w-4 text-white" />
           </Button>
@@ -190,7 +190,7 @@ export function ChatAssistant({ messages, onSendMessage }: ChatAssistantProps) {
             type="button"
             size="icon"
             variant="ghost"
-            className={`absolute right-1.5 top-1.5 w-10 h-10 rounded-full ${theme.accentLight} ${theme.text} shadow-sm`}
+            className={`absolute right-1.5 top-1.5 w-10 h-10 rounded-full bg-[hsl(${theme.accentHsl}/0.1)] text-[hsl(${theme.accentHsl})] shadow-sm`}
           >
             <Mic className="h-4 w-4" />
           </Button>

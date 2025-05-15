@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, ReactNode, useEffect } from "react";
 import { useAuth } from './AuthContext'; // Import useAuth
-import { Mode, Mood, Task, ReflectionEntry, Message, generateId } from "@/lib/utils";
+import { Mode, Mood, Task, ReflectionEntry, Message, generateId, formatDueDate, Priority } from "@/lib/utils";
 import { useLocation } from "wouter";
 import { queryClient } from "@/lib/queryClient";
 import { apiRequest } from "@/lib/queryClient";
@@ -329,22 +329,79 @@ export function OrbitProvider({ children }: OrbitProviderProps) {
         responseContent = aiResponses[content];
         
         // Still send to the API for tracking/learning
-        await apiRequest("POST", "/api/messages", { 
-          content,
-          mode,
-          mood,
-          energy
-        });
+        // The userMessage is already added outside/before this try-catch for predefined responses.
+        // For non-predefined, we add it here if not already added, or ensure it's managed consistently.
+        // For simplicity, assuming userMessage is added once before try block as per original structure.
+
       } else {
-        // Get AI-generated response
-        responseContent = await sendMessageToAssistant(content, {
-          mode,
-          mood,
-          energy
+        // This is the path for AI-generated responses (not predefined)
+        
+        // 1. Filter and select relevant tasks
+        const relevantTasks = tasks
+          .filter(task => task.status === "todo")
+          .sort((a, b) => {
+            if (a.priority === "high" && b.priority !== "high") return -1;
+            if (a.priority !== "high" && b.priority === "high") return 1;
+            if (a.dueDate && b.dueDate) return a.dueDate.getTime() - b.dueDate.getTime();
+            if (a.dueDate) return -1;
+            if (b.dueDate) return 1;
+            return 0;
+          })
+          .slice(0, 5); // Max 5 relevant tasks
+
+        // 2. Transform tasks into AssistantTaskContext format
+        const assistantTasks = relevantTasks.map(task => {
+          const pendingSubtasks = task.subtasks?.filter(st => !st.done) || [];
+          return {
+            id: task.id,
+            title: task.title,
+            description: task.description,
+            priority: task.priority as string,
+            due: task.dueDate ? formatDueDate(task.dueDate) : null,
+            status: task.status,
+            estimatedTime: task.estimatedTime,
+            pendingSubtaskCount: pendingSubtasks.length,
+            pendingSubtaskTitles: pendingSubtasks.slice(0, 3).map(st => st.title),
+            tags: task.tags,
+          };
         });
+
+        // 3. Prepare the full AI context
+        const aiContext = {
+          mode: mode,
+          motivation: mood,
+          energy: energy,
+          tasks: assistantTasks,
+        };
+
+        // 4. Call the AI assistant with rich context
+        const aiResponseObject = await sendMessageToAssistant(content, aiContext);
+        console.log('AI Response Object:', JSON.stringify(aiResponseObject, null, 2)); // Log the full AI response
+
+        responseContent = aiResponseObject.content; // Default chat message
+
+        // Handle actions from AI, like task updates/reframes
+        if (aiResponseObject.action && aiResponseObject.action.type === 'REFRame_TASK' && aiResponseObject.action.taskId) {
+          const taskToUpdate = tasks.find(t => t.id === aiResponseObject.action.taskId);
+          if (taskToUpdate) {
+            let reframeText = "Could not extract reframe text.";
+            if (typeof aiResponseObject.action.reframe === 'string') {
+              reframeText = aiResponseObject.action.reframe;
+            } else if (aiResponseObject.action.reframe && typeof aiResponseObject.action.reframe.suggestion === 'string') {
+              reframeText = aiResponseObject.action.reframe.suggestion;
+            } else if (aiResponseObject.action.reframe && typeof aiResponseObject.action.reframe.text === 'string') {
+              reframeText = aiResponseObject.action.reframe.text;
+            }
+            const newDescription = `Refram_e_: ${reframeText}`;
+            updateTask({ ...taskToUpdate, description: newDescription });
+            // Optionally, refine responseContent if the action implies a specific chat message
+            // For now, the main 'content' from AI is used for chat.
+          }
+        }
+
       }
     } catch (error) {
-      console.error("Error generating AI response:", error);
+      console.error("Error sending message or getting AI response:", error);
       responseContent = "I'm here to help you maintain momentum. What specific challenge are you facing right now?";
     }
     
@@ -352,7 +409,7 @@ export function OrbitProvider({ children }: OrbitProviderProps) {
     const aiMessage: Message = {
       id: generateId(),
       role: "assistant",
-      content: responseContent,
+      content: responseContent, // This will be aiResponseObject.content or the error message
       timestamp: new Date()
     };
     

@@ -125,7 +125,7 @@ export default function AddTaskModal() {
         <DialogHeader>
           <div className="flex justify-between items-center">
             <Button variant="ghost" size="icon" onClick={() => setShowAddTaskModal(false)}>
-              <ArrowLeft className="text-secondary h-5 w-5" />
+              <ArrowLeft className="text-gray-400 h-5 w-5" />
             </Button>
             <DialogTitle className="text-xl font-display font-medium">Add Task</DialogTitle>
             <Button variant="ghost" onClick={handleSave} className="text-[#9F7AEA] font-medium">
@@ -139,7 +139,7 @@ export default function AddTaskModal() {
           <Input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            className="text-lg"
+            className="text-lg text-primary"
             placeholder="What do you need to do?"
             onBlur={() => {
               if (title.trim() && subtasks.length === 0) {
@@ -155,7 +155,7 @@ export default function AddTaskModal() {
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             placeholder="Add details or context (optional)"
-            className="resize-none"
+            className="resize-none text-primary"
             rows={3}
           />
         </div>
@@ -163,7 +163,7 @@ export default function AddTaskModal() {
         {/* Priority & Mode & Time Estimate */}
         <div className="grid grid-cols-3 gap-3 mb-4">
           <div>
-            <h3 className="text-xs font-medium text-secondary mb-2">Priority</h3>
+            <h3 className="text-xs font-medium text-gray-400 mb-2">Priority</h3>
             <Select value={priority} onValueChange={(value) => setPriority(value as Priority)}>
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="Select priority" />
@@ -177,7 +177,7 @@ export default function AddTaskModal() {
           </div>
           
           <div>
-            <h3 className="text-xs font-medium text-secondary mb-2">Mode</h3>
+            <h3 className="text-xs font-medium text-gray-400 mb-2">Mode</h3>
             <Select value={taskMode} onValueChange={(value) => setTaskMode(value as Mode)}>
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="Select mode" />
@@ -192,21 +192,21 @@ export default function AddTaskModal() {
           </div>
           
           <div>
-            <h3 className="text-xs font-medium text-secondary mb-2">Est. Time (min)</h3>
+            <h3 className="text-xs font-medium text-gray-400 mb-2">Est. Time (min)</h3>
             <Input
               type="number"
               min="5"
               step="5"
               value={estimatedTime || ''}
               onChange={(e) => setEstimatedTime(parseInt(e.target.value) || undefined)}
-              className="w-full"
+              className="w-full text-primary"
             />
           </div>
         </div>
         
         {/* Due Date */}
         <div className="mb-4">
-          <h3 className="text-xs font-medium text-secondary mb-2">Due Date</h3>
+          <h3 className="text-xs font-medium text-gray-400 mb-2">Due Date</h3>
           <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
             <PopoverTrigger asChild>
               <Button
@@ -236,7 +236,7 @@ export default function AddTaskModal() {
         
         {/* Tags */}
         <div className="mb-4">
-          <h3 className="text-xs font-medium text-secondary mb-2">Tags</h3>
+          <h3 className="text-xs font-medium text-gray-400 mb-2">Tags</h3>
           <div className="flex flex-wrap gap-2 mb-2">
             {tags.map((tag, idx) => (
               <Badge key={idx} variant="secondary" className="flex items-center gap-1">
@@ -252,13 +252,12 @@ export default function AddTaskModal() {
               </Badge>
             ))}
           </div>
-          
           <div className="flex gap-2">
             <Input
               value={newTag}
               onChange={(e) => setNewTag(e.target.value)}
               placeholder="Add a tag..."
-              className="flex-1"
+              className="flex-1 text-primary"
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
                   e.preventDefault();
@@ -280,7 +279,7 @@ export default function AddTaskModal() {
         {/* Subtasks */}
         <div className="mb-6">
           <div className="flex justify-between items-center mb-2">
-            <h3 className="text-xs font-medium text-secondary">Subtasks</h3>
+            <h3 className="text-xs font-medium text-gray-400">Subtasks</h3>
             <Button 
               variant="link" 
               size="sm" 
@@ -295,7 +294,7 @@ export default function AddTaskModal() {
           {isGeneratingSubtasks ? (
             <div className="flex items-center justify-center p-4">
               <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-[#9F7AEA] border-r-2 border-b-2 border-gray-800"></div>
-              <span className="ml-2 text-sm text-secondary">Generating...</span>
+              <span className="ml-2 text-sm text-gray-400">Generating...</span>
             </div>
           ) : (
             <>

@@ -35,13 +35,15 @@ export default function DailyFlowHub() {
   
   const modeColors: Record<Mode, string> = {
     build: "border-[#9F7AEA]/30 text-[#9F7AEA]", // Purple
-    restore: "border-[#FC8181]/30 text-[#FC8181]", // Red
+    recover: "border-[#FC8181]/30 text-[#FC8181]", // Red
+    reflect: "border-cyan-500/30 text-cyan-400", // Cyan/Teal for Reflect
     flow: "border-green-500/30 text-green-400" // Green
   };
   
   const modeIcons: Record<Mode, string> = {
     build: "⚡",
-    restore: "❤️‍🩹",
+    recover: "❤️‍🩹",
+    reflect: "🧠", // Brain icon for Reflect
     flow: "🌊"
   };
   
@@ -99,28 +101,64 @@ export default function DailyFlowHub() {
         </Card>
       </motion.div>
       
-      {/* Task Feed */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.3 }}
-      >
-        <h2 className="text-xl font-display font-medium mb-4">Task Feed</h2>
-        
-        {tasks.filter(task => task.status === "todo").map(task => (
-          <TaskCard 
-            key={task.id} 
-            task={task} 
-            onStatusChange={updateTaskStatus} 
-          />
-        ))}
-        
-        {tasks.filter(task => task.status === "todo").length === 0 && (
-          <Card className="p-6 text-center mb-4">
-            <p className="text-secondary">No active tasks. Add a new task to get started!</p>
-          </Card>
-        )}
-      </motion.div>
+      {/* Task Sections: Focus and Upcoming */}
+      {(() => {
+        const todoTasks = tasks.filter(task => task.status === "todo");
+        const focusTask = todoTasks.length > 0 ? todoTasks[0] : null;
+        const upcomingTasks = todoTasks.length > 1 ? todoTasks.slice(1) : [];
+
+        return (
+          <>
+            {/* Current Focus Task Section */}
+            {focusTask && (
+              <motion.div
+                initial={{ opacity: 0, y: 15 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3 }}
+                className="mb-8"
+              >
+                <h2 className={`text-2xl font-display font-semibold mb-3 ${modeColors.flow.split(' ')[1]}`}>Current Focus</h2>
+                <TaskCard
+                  key={focusTask.id}
+                  task={focusTask}
+                  onStatusChange={updateTaskStatus}
+                />
+              </motion.div>
+            )}
+
+            {/* Upcoming Tasks Section */}
+            {upcomingTasks.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 15 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: focusTask ? 0.4 : 0.3 }} // Adjust delay if focus task exists
+              >
+                <h3 className="text-xl font-display font-medium mb-3 text-primary">Up Next</h3>
+                {upcomingTasks.map(task => (
+                  <TaskCard
+                    key={task.id}
+                    task={task}
+                    onStatusChange={updateTaskStatus}
+                  />
+                ))}
+              </motion.div>
+            )}
+
+            {/* No Tasks Message */}
+            {!focusTask && upcomingTasks.length === 0 && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.3 }}
+              >
+                <Card className="p-6 text-center mb-4 mt-6 border-dashed border-gray-700">
+                  <p className="text-secondary">Your task feed is clear! Add a new task to get into the flow.</p>
+                </Card>
+              </motion.div>
+            )}
+          </>
+        );
+      })()}
       
       {/* Focus Streak Tracker */}
       <motion.div
