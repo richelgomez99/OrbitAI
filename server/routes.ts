@@ -10,6 +10,7 @@ import {
   generateTaskReframing,
   type AISuggestion
 } from "./openai";
+import * as Personality from './personality';
 
 // Placeholder for default user logic
 const DEFAULT_USER_EMAIL = 'user@example.com';
@@ -92,6 +93,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     mode: z.enum(['build', 'flow', 'restore']).optional()
   });
 
+  // Zod schema for contextual message request
+  const contextualMessageSchema = z.object({
+    trigger: z.enum([
+      'mode_change',
+      'reflection_logged',
+      'energy_low',
+      'no_task',
+      'chat_opened'
+      // Add 'task_completed' later if distinct logic is needed
+    ]),
+    context: z.object({
+      currentMode: z.enum(['build', 'flow', 'restore']).optional(),
+      mood: z.string().optional(), // Assuming mood is a string from frontend, e.g., 'positive', 'neutral', 'negative_stressed'
+      energyLevel: z.number().min(0).max(100).optional(), // e.g., 0-100 slider
+      timeOfDay: z.enum(['morning', 'afternoon', 'evening', 'night']).optional()
+    }).optional()
+  });
+
   app.get("/api/tasks/:id", async (req: Request, res: Response) => {
     try {
       const validationResult = getTaskByIdSchema.safeParse(req.params);
@@ -135,7 +154,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         status: validationResult.data.status ?? 'todo', // Explicit fallback if Zod transform didn't provide string
         priority: validationResult.data.priority ?? 'medium', // Explicit fallback
         estimatedTime: estimatedTime, // Zod ensures this is a number or undefined
-        mode: validationResult.data.mode ?? 'build', // Explicit fallback
+        mode: validationResult.data.mode || 'build', // Explicit fallback, ensures 'build' | 'flow' | 'restore'
         user: { connect: { id: userId } }
       };
 
@@ -435,11 +454,80 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.status(200).json({ subtasks });
     } catch (error) {
+      console.error("Error in /api/tasks/subtasks:", error);
       if (error instanceof Error) {
-        res.status(400).json({ error: error.message });
+        res.status(500).json({ error: `Failed to process subtasks request: ${error.message}` });
       } else {
-        res.status(400).json({ error: "An unknown error occurred" });
+        res.status(500).json({ error: "An unknown error occurred processing subtasks request" });
       }
+    }
+  });
+
+  // CONTEXTUAL ASSISTANT MESSAGE GENERATION
+  function generateContextualAssistantMessage(trigger: string, context?: any): string {
+    let message = Personality.chatNudges[Math.floor(Math.random() * Personality.chatNudges.length)]; // Default to a generic nudge
+
+    switch (trigger) {
+      case 'mode_change':
+        if (context?.currentMode && Personality.modeGreetings[context.currentMode as keyof typeof Personality.modeGreetings]) {
+          message = Personality.modeGreetings[context.currentMode as keyof typeof Personality.modeGreetings];
+        }
+        break;
+      case 'reflection_logged':
+        if (context?.mood) {
+            const moodLowerCase = context.mood.toLowerCase();
+            if (moodLowerCase.includes('positive') || moodLowerCase.includes('good') || moodLowerCase.includes('great') || moodLowerCase.includes('energized') || moodLowerCase.includes('happy')) {
+              message = Personality.reflectionResponses.positive_mood;
+            } else if (moodLowerCase.includes('negative') || moodLowerCase.includes('stressed') || moodLowerCase.includes('drained') || moodLowerCase.includes('sad') || moodLowerCase.includes('anxious')) {
+              message = Personality.reflectionResponses.negative_mood;
+            } else {
+              message = Personality.reflectionResponses.neutral_mood;
+            }
+        } else {
+            message = Personality.reflectionResponses.neutral_mood; // Default if mood not provided
+        }
+        break;
+      case 'energy_low':
+        message = Personality.lowEnergyPrompts[Math.floor(Math.random() * Personality.lowEnergyPrompts.length)];
+        break;
+      case 'no_task':
+        message = Personality.noTaskPrompts[Math.floor(Math.random() * Personality.noTaskPrompts.length)];
+        break;
+      case 'chat_opened':
+        // Default message is already a chat nudge from initialization
+        break;
+      default:
+        console.warn(`Unknown contextual trigger: ${trigger}`);
+        break;
+    }
+    return message;
+  }
+
+  app.post("/api/contextual-message", async (req: Request, res: Response) => {
+    try {
+      const validationResult = contextualMessageSchema.safeParse(req.body);
+      if (!validationResult.success) {
+        return res.status(400).json({
+          error: "Invalid input for contextual message generation",
+          details: validationResult.error.flatten().fieldErrors,
+        });
+      }
+
+      const { trigger, context } = validationResult.data;
+      const userId = await getDefaultUserId();
+
+      const assistantMessageContent = generateContextualAssistantMessage(trigger, context);
+
+      const newMessage = await storage.createMessage({
+        role: 'assistant',
+        content: assistantMessageContent,
+        user: { connect: { id: userId } },
+      });
+
+      res.status(201).json({ chatMessage: newMessage });
+    } catch (error) {
+      console.error("Failed to generate contextual message:", error);
+      res.status(500).json({ error: "Failed to generate contextual message" });
     }
   });
 
@@ -447,7 +535,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/quotes", async (req: Request, res: Response) => {
     try {
       const { mode, mood } = req.body;
-      
       let quote = "Progress over perfection."; // Default quote
       
       try {
@@ -463,10 +550,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.status(200).json({ quote });
     } catch (error) {
+      console.error("Error in /api/quotes:", error);
       if (error instanceof Error) {
-        res.status(400).json({ error: error.message });
+        res.status(500).json({ error: `Failed to process quote request: ${error.message}` });
       } else {
-        res.status(400).json({ error: "An unknown error occurred" });
+        res.status(500).json({ error: "An unknown error occurred processing quote request" });
       }
     }
   });

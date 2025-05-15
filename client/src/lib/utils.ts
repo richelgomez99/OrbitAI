@@ -87,6 +87,17 @@ export function generateId(): string {
   return Math.random().toString(36).substring(2, 11);
 }
 
+export type TimeOfDay = 'morning' | 'afternoon' | 'evening' | 'night';
+
+export const getTimeOfDay = (): TimeOfDay => {
+  const hour = new Date().getHours();
+  if (hour < 5) return 'night'; // Before 5 AM is night
+  if (hour < 12) return 'morning'; // 5 AM to 11:59 AM is morning
+  if (hour < 18) return 'afternoon'; // 12 PM to 5:59 PM is afternoon
+  if (hour < 22) return 'evening'; // 6 PM to 9:59 PM is evening
+  return 'night'; // 10 PM onwards is night
+};
+
 // Mode-specific theme colors and styling
 export interface ModeTheme {
   accentHsl: string; // HSL string value, e.g., "260 81% 61%"

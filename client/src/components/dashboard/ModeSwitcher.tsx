@@ -15,11 +15,43 @@ import {
 const availableModes: Mode[] = ['build', 'flow', 'restore'];
 
 const ModeSwitcher: React.FC = () => {
-  const { mode: activeMode, setMode, showModeSwitcher, setShowModeSwitcher } = useOrbit();
+  const { mode: activeMode, setMode, showModeSwitcher, setShowModeSwitcher, addAssistantMessage } = useOrbit();
 
   const handleModeSelect = (selectedMode: Mode) => {
     setMode(selectedMode);
     setShowModeSwitcher(false);
+
+    // Trigger contextual message
+    (async () => {
+      try {
+        const response = await fetch('/api/contextual-message', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            trigger: 'mode_change',
+            context: {
+              currentMode: selectedMode,
+            },
+          }),
+        });
+        if (response.ok) {
+          const assistantMessage = await response.json();
+          // console.log('Contextual message received:', assistantMessage);
+          // TODO: Add assistantMessage to chat UI. For now, assuming addMessage from useOrbit handles this.
+          if (addAssistantMessage && assistantMessage.chatMessage && typeof assistantMessage.chatMessage.content === 'string') {
+            addAssistantMessage(assistantMessage.chatMessage.content);
+          } else {
+            console.warn('addAssistantMessage function not available or message format/content incorrect from /api/contextual-message for mode_change. Received:', assistantMessage);
+          }
+        } else {
+          console.error('Failed to fetch contextual message for mode_change:', response.statusText);
+        }
+      } catch (error) {
+        console.error('Error fetching contextual message for mode_change:', error);
+      }
+    })();
   };
 
   if (!showModeSwitcher) {

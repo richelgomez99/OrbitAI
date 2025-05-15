@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, ReactNode, useEffect } from "react";
 import { useAuth } from './AuthContext'; // Import useAuth
-import { Mode, Mood, Task, ReflectionEntry, Message, generateId, formatDueDate, Priority } from "@/lib/utils";
+import { Mode, Mood, Task, ReflectionEntry, Message, generateId, formatDueDate, Priority, getTimeOfDay } from "@/lib/utils";
 import { useLocation } from "wouter";
 import { queryClient } from "@/lib/queryClient";
 import { apiRequest } from "@/lib/queryClient";
@@ -45,6 +45,7 @@ interface OrbitContextType {
   // Chat
   messages: Message[];
   sendMessage: (content: string) => void;
+  addAssistantMessage: (messageContent: string) => void; // New function for system-generated assistant messages
   aiSuggestions: AISuggestion[];
   setAiSuggestions: React.Dispatch<React.SetStateAction<AISuggestion[]>>;
   
@@ -128,10 +129,54 @@ export function OrbitProvider({ children }: OrbitProviderProps) {
   // AI Suggestions
   const [aiSuggestions, setAiSuggestions] = useState<AISuggestion[]>([]);
 
+  const addAssistantMessage = (messageContent: string) => {
+    const newAssistantMessage: Message = {
+      id: generateId(),
+      role: 'assistant',
+      content: messageContent,
+      timestamp: new Date(),
+    };
+    setMessages(prevMessages => [...prevMessages, newAssistantMessage]);
+  };
+
   const openAddTaskModalWithData = (data: Partial<Task>) => {
     setInitialTaskData(data);
     setShowAddTaskModal(true);
   };
+
+  // Load initial data from the API
+  // Effect for chat_opened trigger
+  useEffect(() => {
+    (async () => {
+      try {
+        const response = await fetch('/api/contextual-message', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            trigger: 'chat_opened',
+            context: { mode: mode, mood: mood, energyLevel: energy, timeOfDay: getTimeOfDay() },
+          }),
+        });
+        if (response.ok) {
+          const assistantMessage = await response.json();
+          if (assistantMessage.chatMessage && typeof assistantMessage.chatMessage.content === 'string') {
+            // Add this message such that it appears after any initially hardcoded messages
+            // For instance, if initial messages are set directly, this will be added after them.
+            // If messages are empty initially, this would be the first or among the first.
+            addAssistantMessage(assistantMessage.chatMessage.content);
+          } else {
+            console.warn('addAssistantMessage function not available or message format/content incorrect from /api/contextual-message for chat_opened. Received:', assistantMessage);
+          }
+        } else {
+          console.error('Failed to fetch contextual message for chat_opened:', response.statusText);
+        }
+      } catch (error) {
+        console.error('Error fetching contextual message for chat_opened:', error);
+      }
+    })();
+  }, []); // Empty dependency array ensures this runs once on mount
 
   // Load initial data from the API
   useEffect(() => {
@@ -142,6 +187,36 @@ export function OrbitProvider({ children }: OrbitProviderProps) {
         const tasksResponse = await apiRequest("GET", "/api/tasks", undefined);
         const tasksData = await tasksResponse.json();
         setTasks(tasksData); // Always set tasks, even if empty, to reflect backend truth
+
+        // Trigger contextual message if no tasks are loaded
+        if (tasksData && tasksData.length === 0) {
+          (async () => {
+            try {
+              const response = await fetch('/api/contextual-message', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  trigger: 'no_task',
+                  context: { mode: mode, mood: mood, energyLevel: energy }, // Send current state
+                }),
+              });
+              if (response.ok) {
+                const assistantMessage = await response.json();
+                if (assistantMessage.chatMessage && typeof assistantMessage.chatMessage.content === 'string') {
+                  addAssistantMessage(assistantMessage.chatMessage.content);
+                } else {
+                  console.warn('addAssistantMessage function not available or message format/content incorrect from /api/contextual-message for no_task. Received:', assistantMessage);
+                }
+              } else {
+                console.error('Failed to fetch contextual message for no_task:', response.statusText);
+              }
+            } catch (error) {
+              console.error('Error fetching contextual message for no_task:', error);
+            }
+          })();
+        }
         
         // Fetch reflections
         const reflectionsResponse = await apiRequest("GET", "/api/reflections", undefined);
@@ -296,6 +371,35 @@ export function OrbitProvider({ children }: OrbitProviderProps) {
       // await apiRequest("POST", "/api/reflections", newReflection);
       // queryClient.invalidateQueries({ queryKey: ["/api/reflections"] });
       console.log("Reflection saved locally:", newReflection);
+
+      // Trigger contextual message for reflection_logged
+      (async () => {
+        try {
+          const response = await fetch('/api/contextual-message', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              trigger: 'reflection_logged',
+              // No specific context needed for reflection_logged, but API expects context object
+              context: { mood: mood, energyLevel: energy }, // Send current mood and energy
+            }),
+          });
+          if (response.ok) {
+            const assistantMessage = await response.json();
+            if (assistantMessage.chatMessage && typeof assistantMessage.chatMessage.content === 'string') {
+              addAssistantMessage(assistantMessage.chatMessage.content);
+            } else {
+              console.warn('addAssistantMessage function not available or message format/content incorrect from /api/contextual-message for reflection_logged. Received:', assistantMessage);
+            }
+          } else {
+            console.error('Failed to fetch contextual message for reflection_logged:', response.statusText);
+          }
+        } catch (error) {
+          console.error('Error fetching contextual message for reflection_logged:', error);
+        }
+      })();
     } catch (error) {
       console.error("Error adding reflection:", error);
       setReflections(oldReflections); // Rollback optimistic update
@@ -382,6 +486,39 @@ export function OrbitProvider({ children }: OrbitProviderProps) {
     const clampedEnergy = Math.max(0, Math.min(100, newEnergy));
     localStorage.setItem('orbitEnergy', clampedEnergy.toString());
     setEnergyState(clampedEnergy);
+
+    // Trigger contextual message if energy is low
+    if (clampedEnergy <= 30) {
+      (async () => {
+        try {
+          const response = await fetch('/api/contextual-message', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              trigger: 'energy_low',
+              context: {
+                energyLevel: clampedEnergy,
+                mood: mood // Send current mood as well
+              },
+            }),
+          });
+          if (response.ok) {
+            const assistantMessage = await response.json();
+            if (assistantMessage.chatMessage && typeof assistantMessage.chatMessage.content === 'string') {
+              addAssistantMessage(assistantMessage.chatMessage.content);
+            } else {
+              console.warn('addAssistantMessage function not available or message format/content incorrect from /api/contextual-message for energy_low. Received:', assistantMessage);
+            }
+          } else {
+            console.error('Failed to fetch contextual message for energy_low:', response.statusText);
+          }
+        } catch (error) {
+          console.error('Error fetching contextual message for energy_low:', error);
+        }
+      })();
+    }
   };
 
   const value = {
@@ -409,6 +546,7 @@ export function OrbitProvider({ children }: OrbitProviderProps) {
     addReflection,
     messages,
     sendMessage,
+    addAssistantMessage, // Expose the new function
     aiSuggestions,
     setAiSuggestions,
     focusStreak,
