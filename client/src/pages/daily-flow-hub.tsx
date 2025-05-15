@@ -7,8 +7,7 @@ import { FocusStreakTracker } from "@/components/focus-streak-tracker";
 import { Info, CircleArrowOutDownLeft } from "lucide-react";
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { getRandomQuote } from "@/lib/utils";
-import { getMotivationalQuote } from "@/lib/ai";
+import { getRandomQuote, Mode } from "@/lib/utils";
 
 export default function DailyFlowHub() {
   const { 
@@ -26,43 +25,24 @@ export default function DailyFlowHub() {
   const [quote, setQuote] = useState(getRandomQuote());
   
   useEffect(() => {
-    // Fetch AI-generated quote based on user's mode and mood
-    const fetchQuote = async () => {
-      try {
-        const aiQuote = await getMotivationalQuote(mode, mood);
-        setQuote(aiQuote);
-      } catch (error) {
-        console.error("Error fetching AI quote:", error);
-        // Fallback to random quote from predefined list
-        setQuote(getRandomQuote());
-      }
-    };
-    
-    fetchQuote();
-    
-    // Generate a new quote every 5 minutes
-    const interval = setInterval(fetchQuote, 5 * 60 * 1000);
-    
-    return () => clearInterval(interval);
-  }, [mode, mood]);
+    setQuote(getRandomQuote());
+  }, []);
   
   const handleSliderChange = (value: number[]) => {
     setSliderValue(value);
     setEnergy(value[0]);
   };
   
-  const modeColors = {
-    build: "border-[#9F7AEA]/30 text-[#9F7AEA]",
-    maintain: "border-[#76E4F7]/30 text-[#76E4F7]",
-    recover: "border-[#FC8181]/30 text-[#FC8181]",
-    reflect: "border-[#76E4F7]/30 text-[#76E4F7]"
+  const modeColors: Record<Mode, string> = {
+    build: "border-[#9F7AEA]/30 text-[#9F7AEA]", // Purple
+    restore: "border-[#FC8181]/30 text-[#FC8181]", // Red
+    flow: "border-green-500/30 text-green-400" // Green
   };
   
-  const modeIcons = {
+  const modeIcons: Record<Mode, string> = {
     build: "⚡",
-    maintain: "⚙️",
-    recover: "❤️‍🩹",
-    reflect: "🧠"
+    restore: "❤️‍🩹",
+    flow: "🌊"
   };
   
   const energyLevel = 
@@ -79,8 +59,8 @@ export default function DailyFlowHub() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
       >
-        <div className={`glass px-4 py-2 rounded-full flex items-center gap-2 border ${modeColors[mode]}`}>
-          <span className={modeColors[mode]}>{modeIcons[mode]}</span>
+        <div className={`glass px-4 py-2 rounded-full flex items-center gap-2 border ${modeColors[mode as Mode]}`}>
+          <span className={modeColors[mode as Mode]}>{modeIcons[mode as Mode]}</span>
           <span className="text-primary">You're in {mode.charAt(0).toUpperCase() + mode.slice(1)} Mode</span>
           <Info className="text-secondary cursor-pointer ml-1 h-4 w-4" />
         </div>

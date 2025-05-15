@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, ReactNode, useEffect } from "react";
+import { useAuth } from './AuthContext'; // Import useAuth
 import { Mode, Mood, Task, ReflectionEntry, Message, generateId } from "@/lib/utils";
 import { useLocation } from "wouter";
 import { queryClient } from "@/lib/queryClient";
@@ -28,13 +29,15 @@ interface OrbitContextType {
   
   // Tasks
   tasks: Task[];
+  setTasks: React.Dispatch<React.SetStateAction<Task[]>>; // Added to allow direct state manipulation if needed
+  isLoadingTasks: boolean;
   addTask: (task: Partial<Task>) => void;
   updateTaskStatus: (id: string, status: "todo" | "done" | "snoozed") => void;
   updateTask: (task: Task) => void;
   
   // Reflections
   reflections: ReflectionEntry[];
-  addReflection: (reflection: Partial<ReflectionEntry>) => void;
+  addReflection: (reflectionData: { wins: string; struggles: string; journalEntry: string; }) => void;
   
   // Chat
   messages: Message[];
@@ -51,10 +54,28 @@ interface OrbitProviderProps {
 }
 
 export function OrbitProvider({ children }: OrbitProviderProps) {
+  const { user } = useAuth(); // Get user from AuthContext
   // App state
-  const [mode, setMode] = useState<Mode>("build");
-  const [mood, setMood] = useState<Mood>("motivated");
-  const [energy, setEnergy] = useState(60);
+  const [mode, setModeState] = useState<Mode>(() => {
+    const storedMode = localStorage.getItem('orbitMode') as Mode;
+    const validModes: Mode[] = ['build', 'recover', 'reflect', 'flow'];
+    if (storedMode && validModes.includes(storedMode)) {
+      return storedMode;
+    }
+    localStorage.setItem('orbitMode', 'build'); // Correct localStorage if invalid or missing
+    return 'build'; // Default to 'build'
+  });
+  const [mood, setMoodState] = useState<Mood>(() => {
+    const storedMood = localStorage.getItem('orbitMood');
+    if (storedMood === 'stressed' || storedMood === 'motivated' || storedMood === 'calm') {
+      return storedMood as Mood;
+    }
+    return 'motivated'; // Default if not found or invalid
+  });
+  const [energy, setEnergyState] = useState<number>(() => {
+    const savedEnergy = localStorage.getItem('orbitEnergy');
+    return savedEnergy ? parseInt(savedEnergy, 10) : 70;
+  });
   const [started, setStarted] = useState(false);
   
   // Navigation
@@ -66,26 +87,8 @@ export function OrbitProvider({ children }: OrbitProviderProps) {
   const [showAddTaskModal, setShowAddTaskModal] = useState(false);
   
   // Tasks
-  const [tasks, setTasks] = useState<Task[]>([
-    {
-      id: "1",
-      title: "Create landing page wireframes",
-      description: "Reframe: Break it into homepage, about, and features sections first",
-      status: "todo",
-      priority: "medium",
-      estimatedTime: 45,
-      createdAt: new Date()
-    },
-    {
-      id: "2",
-      title: "Send proposal to client",
-      description: "Reframe: Focus on value proposition instead of feature list",
-      status: "todo",
-      priority: "high",
-      estimatedTime: 20,
-      createdAt: new Date()
-    }
-  ]);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [isLoadingTasks, setIsLoadingTasks] = useState<boolean>(true); 
   
   // Reflections
   const [reflections, setReflections] = useState<ReflectionEntry[]>([]);
@@ -118,53 +121,97 @@ export function OrbitProvider({ children }: OrbitProviderProps) {
   // Load initial data from the API
   useEffect(() => {
     const fetchData = async () => {
+      setIsLoadingTasks(true);
       try {
         // Fetch tasks
         const tasksResponse = await apiRequest("GET", "/api/tasks", undefined);
         const tasksData = await tasksResponse.json();
-        if (tasksData.length) setTasks(tasksData);
+        setTasks(tasksData); // Always set tasks, even if empty, to reflect backend truth
         
         // Fetch reflections
         const reflectionsResponse = await apiRequest("GET", "/api/reflections", undefined);
-        const reflectionsData = await reflectionsResponse.json();
-        if (reflectionsData.length) setReflections(reflectionsData);
+        const rawReflectionsData = await reflectionsResponse.json();
+        if (rawReflectionsData && rawReflectionsData.length > 0) {
+          const transformedReflections = rawReflectionsData.map((apiEntry: any): ReflectionEntry => {
+            let mappedMood: Mood | undefined = undefined;
+            if (typeof apiEntry.mood === 'number') {
+              if (apiEntry.mood === 1 || apiEntry.mood === 2) mappedMood = 'stressed';
+              else if (apiEntry.mood === 3) mappedMood = 'calm';
+              else if (apiEntry.mood === 4 || apiEntry.mood === 5) mappedMood = 'motivated';
+            } else if (typeof apiEntry.mood === 'string' && ['stressed', 'motivated', 'calm'].includes(apiEntry.mood)) {
+              mappedMood = apiEntry.mood as Mood;
+            }
+            return {
+              id: apiEntry.id || generateId(),
+              userId: apiEntry.userId || user?.id || '', // Ensure userId is present
+              date: apiEntry.date ? new Date(apiEntry.date) : new Date(),
+              wins: apiEntry.wins || '',
+              struggles: apiEntry.struggles || '',
+              journalEntry: apiEntry.comment || apiEntry.journalEntry || '',
+              mood: mappedMood,
+              tags: apiEntry.tags || [],
+            };
+          }).filter((entry: ReflectionEntry) => entry.userId); // Filter out entries without a userId
+          setReflections(transformedReflections);
+        }
 
       } catch (error) {
         console.error("Error fetching initial data:", error);
+        setTasks([]); // Set to empty on error to clear any stale data
+      } finally {
+        setIsLoadingTasks(false);
       }
     };
 
     fetchData();
-  }, []);
+    startApp(); // Automatically start the app for the session
+  }, []); // Empty dependency array ensures this runs once on mount
 
-  // Start the app and navigate to the flow page
+  // Start the app: navigate to mode selection or dashboard
   const startApp = () => {
     setStarted(true);
-    navigate("/flow");
+    const existingMode = localStorage.getItem('orbitMode');
+    if (existingMode) {
+      navigate("/dashboard"); // Or another default page like /app or /flow
+    } else {
+      navigate("/mode-mood-select");
+    }
   };
 
   // Add a new task
   const addTask = async (taskData: Partial<Task>) => {
+    if (!user) {
+      console.error("User not authenticated. Cannot add task.");
+      // TODO: Show user-facing error message
+      return;
+    }
+
     const newTask: Task = {
-      id: generateId(),
+      id: generateId(), // Consider DB-generated IDs in the long run
+      user_id: user.id, // Add user_id
       title: taskData.title || "Untitled task",
       description: taskData.description,
       status: "todo",
       priority: taskData.priority || "medium",
       estimatedTime: taskData.estimatedTime,
       dueDate: taskData.dueDate,
-      mode: mode,
+      mode: taskData.mode || mode, // Use taskData.mode, fallback to global mode
       subtasks: taskData.subtasks,
+      tags: taskData.tags, // Ensure tags are passed
+      isAiGenerated: taskData.isAiGenerated || false, // Ensure isAiGenerated is passed
       createdAt: new Date()
     };
     
-    setTasks(prev => [...prev, newTask]);
+    const oldTasks = tasks;
+    setTasks(prev => [...prev, newTask]); // Optimistic update
     
     try {
       await apiRequest("POST", "/api/tasks", newTask);
       queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
     } catch (error) {
       console.error("Error adding task:", error);
+      setTasks(oldTasks); // Rollback optimistic update
+      // TODO: Show user-facing error message
     }
   };
 
@@ -206,22 +253,35 @@ export function OrbitProvider({ children }: OrbitProviderProps) {
   };
 
   // Add a new reflection
-  const addReflection = async (reflectionData: Partial<ReflectionEntry>) => {
+  const addReflection = async (reflectionData: { wins: string; struggles: string; journalEntry: string; }) => {
+    if (!user) {
+      console.error("User not authenticated. Cannot add reflection.");
+      // TODO: Show user-facing error message
+      return;
+    }
+
     const newReflection: ReflectionEntry = {
       id: generateId(),
+      userId: user.id,
       date: new Date(),
-      mood: reflectionData.mood || 3,
-      tags: reflectionData.tags || [],
-      comment: reflectionData.comment
+      wins: reflectionData.wins,
+      struggles: reflectionData.struggles,
+      journalEntry: reflectionData.journalEntry,
+      // mood and tags can be added later if captured from UI
     };
-    
-    setReflections(prev => [...prev, newReflection]);
-    
+
+    const oldReflections = reflections;
+    setReflections(prev => [newReflection, ...prev]); // Optimistic update, add to beginning
+
     try {
-      await apiRequest("POST", "/api/reflections", newReflection);
-      queryClient.invalidateQueries({ queryKey: ["/api/reflections"] });
+      // TODO: Implement API call to save reflection
+      // await apiRequest("POST", "/api/reflections", newReflection);
+      // queryClient.invalidateQueries({ queryKey: ["/api/reflections"] });
+      console.log("Reflection saved locally:", newReflection);
     } catch (error) {
       console.error("Error adding reflection:", error);
+      setReflections(oldReflections); // Rollback optimistic update
+      // TODO: Show user-facing error message
     }
   };
 
@@ -282,30 +342,58 @@ export function OrbitProvider({ children }: OrbitProviderProps) {
     setMessages(prev => [...prev, aiMessage]);
   };
 
+  const setMode = (newMode: Mode) => { // Parameter type is Mode
+    console.log('Setting mode to:', newMode);
+    localStorage.setItem('orbitMode', newMode);
+    setModeState(newMode);
+  };
+
+  const setMood = (newMood: Mood) => { // Parameter type is Mood, no undefined
+    console.log('Setting mood to:', newMood);
+    localStorage.setItem('orbitMood', newMood);
+    setMoodState(newMood);
+  };
+
+  const setEnergy = (newEnergy: number) => {
+    const clampedEnergy = Math.max(0, Math.min(100, newEnergy));
+    console.log('Setting energy to:', clampedEnergy);
+    localStorage.setItem('orbitEnergy', clampedEnergy.toString());
+    setEnergyState(clampedEnergy);
+  };
+
   const value = {
+    // App state
     mode,
-    setMode,
+    setMode: setModeState,
     mood,
-    setMood,
+    setMood: setMoodState,
     energy,
-    setEnergy,
+    setEnergy: setEnergyState,
     started,
     startApp,
+    // Navigation
     showAppNavigation,
     setShowAppNavigation,
+    // Modals
     showModeSwitcher,
     setShowModeSwitcher,
     showAddTaskModal,
     setShowAddTaskModal,
+    // Tasks
     tasks,
+    setTasks,
+    isLoadingTasks,
     addTask,
     updateTaskStatus,
     updateTask,
+    // Reflections
     reflections,
-    addReflection,
+    addReflection, // This should now refer to the implemented function
+    // Chat
     messages,
     sendMessage,
-    focusStreak
+    // Focus streak
+    focusStreak,
   };
 
   return <OrbitContext.Provider value={value}>{children}</OrbitContext.Provider>;

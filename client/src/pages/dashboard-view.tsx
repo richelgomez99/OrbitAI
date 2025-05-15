@@ -1,8 +1,13 @@
 import { useOrbit } from "@/context/orbit-context";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { getRandomQuote, formatDueDate } from "@/lib/utils";
+import { formatDueDate, getModeTheme } from "@/lib/utils";
+import BuildDashboardContent from '@/components/dashboard/mode_views/BuildDashboardContent';
+import RecoverDashboardContent from '@/components/dashboard/mode_views/RecoverDashboardContent';
+import ReflectDashboardContent from '@/components/dashboard/mode_views/ReflectDashboardContent';
+import FlowDashboardContent from '@/components/dashboard/mode_views/FlowDashboardContent';
 import { motion } from "framer-motion";
+import { ChevronDownSquare } from 'lucide-react';
 import { Plus } from "lucide-react";
 import { 
   Select,
@@ -12,16 +17,18 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useState } from "react";
+import { useLocation } from "wouter"; // For navigation
 
 export default function DashboardView() {
-  const { mode, tasks, setShowAddTaskModal } = useOrbit();
+  const { mode, tasks, setShowAddTaskModal, setShowModeSwitcher } = useOrbit();
+  const [, navigate] = useLocation(); // For navigation to /reflect
   const [sortBy, setSortBy] = useState("priority");
   
   const completedTasks = tasks.filter(task => task.status === "done");
   const activeTasks = tasks.filter(task => task.status === "todo");
   const completionPercentage = tasks.length ? Math.round((completedTasks.length / tasks.length) * 100) : 0;
   
-  const moodEmoji = mode === "build" ? "😊" : mode === "recover" ? "😌" : "🧠";
+  const { emoji: modeEmoji, label: modeLabel } = getModeTheme(mode);
   
   return (
     <div className="page-transition animate-fade-in pb-24 pt-8 px-4">
@@ -31,14 +38,24 @@ export default function DashboardView() {
       >
         <h1 className="text-2xl font-display font-bold mb-4">Your Orbit Dashboard</h1>
         
-        <div className="flex items-center gap-2 mb-6">
-          <span className="text-xl">{moodEmoji}</span>
-          <span className="text-secondary">in {mode} mode</span>
+        <div className="flex justify-between items-center mb-6">
+          <div className="flex items-center gap-2">
+            <span className="text-xl">{modeEmoji}</span>
+            <span className="text-secondary">in {modeLabel} mode</span>
+          </div>
+          <Button 
+            variant="outline" 
+            onClick={() => setShowModeSwitcher(true)}
+            className="flex items-center gap-2"
+          >
+            <ChevronDownSquare className="h-4 w-4" />
+            Switch Mode
+          </Button>
         </div>
       </motion.div>
       
+      {/* Commenting out generic stats cards for now - will be integrated into mode-specific views 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-        {/* Task Progress */}
         <motion.div
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
@@ -79,94 +96,75 @@ export default function DashboardView() {
           </Card>
         </motion.div>
         
-        {/* Task Stats */}
         <motion.div
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.2 }}
-        >
-          <Card className="p-4">
-            <h3 className="text-lg font-medium mb-4">Stats</h3>
-            <div className="space-y-3">
-              <div>
-                <div className="flex justify-between items-center mb-1">
-                  <span className="text-sm text-secondary">Completed Today</span>
-                  <span className="text-xs text-secondary">{completedTasks.filter(t => 
-                    new Date(t.createdAt).toDateString() === new Date().toDateString()
-                  ).length}</span>
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.2 }}
+          >
+            <Card className="p-4">
+              <h3 className="text-lg font-medium mb-4">Stats</h3>
+              <div className="space-y-3">
+                 <div>
+                  <div className="flex justify-between items-center mb-1">
+                    <span className="text-sm text-secondary">Completed Today</span>
+                    <span className="text-xs text-secondary">{completedTasks.filter(t => 
+                      new Date(t.createdAt).toDateString() === new Date().toDateString()
+                    ).length}</span>
+                  </div>
+                  <div className="w-full bg-surface/50 rounded-full h-2">
+                    <div 
+                      className="bg-[#9F7AEA] h-2 rounded-full" 
+                      style={{ width: `${Math.min(
+                        completedTasks.filter(t => 
+                          new Date(t.createdAt).toDateString() === new Date().toDateString()
+                        ).length * 20, 100
+                      )}%` }}
+                    ></div>
+                  </div>
                 </div>
-                <div className="w-full bg-surface/50 rounded-full h-2">
-                  <div 
-                    className="bg-[#9F7AEA] h-2 rounded-full" 
-                    style={{ width: `${Math.min(
-                      completedTasks.filter(t => 
-                        new Date(t.createdAt).toDateString() === new Date().toDateString()
-                      ).length * 20, 100
-                    )}%` }}
-                  ></div>
+                <div>
+                  <div className="flex justify-between items-center mb-1">
+                    <span className="text-sm text-secondary">Focus Score</span>
+                    <span className="text-xs text-secondary">7.5/10</span>
+                  </div>
+                  <div className="w-full bg-surface/50 rounded-full h-2">
+                    <div className="bg-[#9F7AEA] h-2 rounded-full" style={{ width: "75%" }}></div>
+                  </div>
+                </div>
+                <div>
+                  <div className="flex justify-between items-center mb-1">
+                    <span className="text-sm text-secondary">Streak</span>
+                    <span className="text-xs text-secondary">2 days</span>
+                  </div>
+                  <div className="w-full bg-surface/50 rounded-full h-2">
+                    <div className="bg-[#9F7AEA] h-2 rounded-full" style={{ width: "40%" }}></div>
+                  </div>
                 </div>
               </div>
-              <div>
-                <div className="flex justify-between items-center mb-1">
-                  <span className="text-sm text-secondary">Focus Score</span>
-                  <span className="text-xs text-secondary">7.5/10</span>
-                </div>
-                <div className="w-full bg-surface/50 rounded-full h-2">
-                  <div className="bg-[#9F7AEA] h-2 rounded-full" style={{ width: "75%" }}></div>
-                </div>
-              </div>
-              <div>
-                <div className="flex justify-between items-center mb-1">
-                  <span className="text-sm text-secondary">Streak</span>
-                  <span className="text-xs text-secondary">2 days</span>
-                </div>
-                <div className="w-full bg-surface/50 rounded-full h-2">
-                  <div className="bg-[#9F7AEA] h-2 rounded-full" style={{ width: "40%" }}></div>
-                </div>
-              </div>
-            </div>
-          </Card>
-        </motion.div>
+            </Card>
+          </motion.div>
       </div>
-      
-      {/* Active Tasks */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.3 }}
-      >
-        <h2 className="text-xl font-display font-medium mb-4">Active</h2>
-        
-        {activeTasks.map(task => (
-          <Card key={task.id} className="p-4 mb-4 hover:translate-x-1">
-            <div className="flex justify-between mb-1">
-              <h3 className="font-medium text-primary">{task.title}</h3>
-              <span className="text-xs text-secondary">
-                {task.dueDate ? formatDueDate(task.dueDate) : "No deadline"}
-              </span>
-            </div>
-            <p className="text-sm text-secondary mb-3">
-              {task.description || "No description"}
-            </p>
-            <div className="w-full bg-surface/50 rounded-full h-2 mb-3">
-              <div 
-                className="bg-[#9F7AEA] h-2 rounded-full" 
-                style={{ 
-                  width: task.subtasks && task.subtasks.length > 0 
-                    ? `${(task.subtasks.filter(st => st.done).length / task.subtasks.length) * 100}%` 
-                    : "0%" 
-                }}
-              ></div>
-            </div>
-          </Card>
-        ))}
-        
-        {activeTasks.length === 0 && (
-          <Card className="p-6 text-center mb-4">
-            <p className="text-secondary">All caught up! Add a new task to continue your momentum.</p>
-          </Card>
-        )}
-      </motion.div>
+      */}
+
+      {/* Dynamically render content based on mode */}
+      <div className="mt-6">
+        {(() => {
+          switch (mode) {
+            case 'build':
+              return <BuildDashboardContent />;
+            case 'recover':
+              return <RecoverDashboardContent />;
+            case 'reflect':
+              return <ReflectDashboardContent />;
+            case 'flow':
+              return <FlowDashboardContent />;
+            default:
+              const _exhaustiveCheck: never = mode;
+              console.warn(`Unhandled mode: ${_exhaustiveCheck}`);
+              return <p>Unknown mode selected. Please refresh or select a mode.</p>;
+          }
+        })()}
+      </div>
       
       {/* Sort By */}
       <motion.div
@@ -210,13 +208,10 @@ export default function DashboardView() {
         <Card className="p-4 mb-6">
           <h3 className="text-lg font-medium mb-2">Today's Focus</h3>
           <p className="text-secondary">
-            {completedTasks.filter(t => 
+            {tasks.filter(t => 
               new Date(t.createdAt).toDateString() === new Date().toDateString()
-            ).length}/{tasks.filter(t => 
-              new Date(t.createdAt).toDateString() === new Date().toDateString()
-            ).length} tasks completed
+            ).length} tasks to complete today
           </p>
-          <p className="text-primary mt-4 italic">"{getRandomQuote()}"</p>
         </Card>
       </motion.div>
     </div>

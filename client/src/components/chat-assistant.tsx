@@ -38,33 +38,44 @@ export function ChatAssistant({ messages, onSendMessage }: ChatAssistantProps) {
   // Suggestions based on the user's current mode and mood
   const getSuggestions = () => {
     const baseSuggestions = [
-      { text: "Reframe task", icon: <RefreshCcw size={14} /> },
+      { text: "Reframe a task", icon: <RefreshCcw size={14} /> },
       { text: "Need help deciding?", icon: <Brain size={14} /> }
     ];
-    
-    // Add mode-specific suggestions
+
+    let modeSpecificSuggestions: { text: string; icon: JSX.Element }[] = [];
+
     switch(mode) {
       case 'build':
-        return [
-          ...baseSuggestions,
+        modeSpecificSuggestions = [
           { text: "Break down my next task", icon: <MessageSquareMore size={14} /> },
-          { text: "Prioritize my tasks", icon: <Clock size={14} /> }
+          { text: "Prioritize tasks for today", icon: <Clock size={14} /> }
         ];
+        break;
       case 'recover':
-        return [
-          ...baseSuggestions,
-          { text: "Clear mental fog", icon: <Brain size={14} /> },
-          { text: "Suggest a microbreak", icon: <Pause size={14} /> }
+        modeSpecificSuggestions = [
+          { text: "Help me clear mental fog", icon: <Brain size={14} /> },
+          { text: "Suggest a 5-min microbreak", icon: <Pause size={14} /> }
         ];
+        break;
       case 'reflect':
-        return [
-          ...baseSuggestions,
-          { text: "What patterns do you notice?", icon: <Brain size={14} /> },
-          { text: "Help me reflect on today", icon: <MessageSquareMore size={14} /> }
+        modeSpecificSuggestions = [
+          { text: "What were my wins today?", icon: <MessageSquareMore size={14} /> },
+          { text: "Help me journal about my mood", icon: <Brain size={14} /> }
         ];
+        break;
+      case 'flow':
+        modeSpecificSuggestions = [
+          { text: "What's one small step?", icon: <MessageSquareMore size={14} /> },
+          { text: "Help me deepen focus", icon: <Brain size={14} /> }
+        ];
+        break;
       default:
-        return baseSuggestions;
+        // Optional: handle unexpected mode or just return base
+        const _exhaustiveCheck: never = mode;
+        console.warn(`Unhandled mode for suggestions: ${_exhaustiveCheck}`);
+        break;
     }
+    return [...baseSuggestions, ...modeSpecificSuggestions];
   };
   
   // Get theme based on current mode
@@ -149,9 +160,9 @@ export function ChatAssistant({ messages, onSendMessage }: ChatAssistantProps) {
             variant="outline"
             size="sm"
             onClick={() => onSendMessage(suggestion.text)}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-full border ${colors.border} hover:${colors.accentLight} hover:${colors.text} transition-colors snap-start shadow-sm min-h-[36px]`}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-full border ${theme.border} hover:${theme.accentLight} hover:${theme.text} transition-colors snap-start shadow-sm min-h-[36px]`}
           >
-            <span className={colors.text}>{suggestion.icon}</span>
+            <span className={theme.text}>{suggestion.icon}</span>
             <span>{suggestion.text}</span>
           </Button>
         ))}
@@ -163,14 +174,14 @@ export function ChatAssistant({ messages, onSendMessage }: ChatAssistantProps) {
           value={message}
           onChange={(e) => setMessage(e.target.value)}
           placeholder="Send a message..."
-          className={`w-full rounded-full py-3 pl-5 pr-14 border ${colors.border} shadow-md`}
+          className={`w-full rounded-full py-3 pl-5 pr-14 border ${theme.border} shadow-md`}
         />
         {message.trim() ? (
           <Button
             type="submit"
             size="icon"
             variant="ghost"
-            className={`absolute right-1.5 top-1.5 w-10 h-10 rounded-full ${colors.accent} ${colors.text} shadow-sm`}
+            className={`absolute right-1.5 top-1.5 w-10 h-10 rounded-full ${theme.accent} ${theme.text} shadow-sm`}
           >
             <Send className="h-4 w-4 text-white" />
           </Button>
@@ -179,7 +190,7 @@ export function ChatAssistant({ messages, onSendMessage }: ChatAssistantProps) {
             type="button"
             size="icon"
             variant="ghost"
-            className={`absolute right-1.5 top-1.5 w-10 h-10 rounded-full ${colors.accentLight} ${colors.text} shadow-sm`}
+            className={`absolute right-1.5 top-1.5 w-10 h-10 rounded-full ${theme.accentLight} ${theme.text} shadow-sm`}
           >
             <Mic className="h-4 w-4" />
           </Button>

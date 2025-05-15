@@ -14,6 +14,7 @@ import {
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
 import { useOrbit } from "@/context/orbit-context";
+import { useLocation } from "wouter"; // Import useLocation for navigation
 import { EditTaskDialog } from "@/components/edit-task-dialog";
 
 interface TaskCardProps {
@@ -22,6 +23,7 @@ interface TaskCardProps {
 }
 
 export function TaskCard({ task, onStatusChange }: TaskCardProps) {
+  const [, navigate] = useLocation(); // Get navigate function
   const { sendMessage, updateTask } = useOrbit();
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   
@@ -38,14 +40,14 @@ export function TaskCard({ task, onStatusChange }: TaskCardProps) {
   };
   
   const modeColors: Record<Mode, string> = {
-    build: "bg-[#9F7AEA]/10 text-[#9F7AEA] border-[#9F7AEA]/20",
-    maintain: "bg-[#76E4F7]/10 text-[#76E4F7] border-[#76E4F7]/20",
-    recover: "bg-[#FC8181]/10 text-[#FC8181] border-[#FC8181]/20",
-    reflect: "bg-[#76E4F7]/10 text-[#76E4F7] border-[#76E4F7]/20"
+    build: "bg-[#9F7AEA]/10 text-[#9F7AEA] border-[#9F7AEA]/20", // Purple
+    restore: "bg-[#FC8181]/10 text-[#FC8181] border-[#FC8181]/20", // Red
+    flow: "bg-green-500/10 text-green-400 border-green-500/20" // Green
   };
   
   const handleReframeTask = () => {
     sendMessage(`Reframe task: ${task.title}`);
+    navigate("/chat"); // Navigate to the chat page
   };
   
   const handleEditTask = () => {

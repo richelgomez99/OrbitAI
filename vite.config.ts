@@ -18,4 +18,12 @@ export default defineConfig({
     outDir: path.resolve(path.dirname(new URL(import.meta.url).pathname), "dist/public"),
     emptyOutDir: true,
   },
+  server: {
+    proxy: {
+      '/api': {
+        target: 'http://localhost:5001',
+        changeOrigin: true,
+      }
+    }
+  },
 });

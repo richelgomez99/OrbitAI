@@ -1,6 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
-import { List, PieChart, Plus, Brain, MessageCircle } from "lucide-react";
+import { Zap, PieChart, Plus, Brain, MessageCircle } from "lucide-react"; // Replaced List with Zap
 import { motion } from "framer-motion";
 import { useOrbit } from "@/context/orbit-context";
 
@@ -21,8 +21,8 @@ export default function AppNavigation() {
             variant="ghost" 
             className={`flex flex-col items-center ${location === "/flow" ? "text-[#9F7AEA]" : "text-secondary"}`}
           >
-            <List className="h-5 w-5 mb-1" />
-            <span className="text-xs">Tasks</span>
+            <Zap className="h-5 w-5 mb-1" />
+            <span className="text-xs">Flow</span>
           </Button>
         </Link>
         

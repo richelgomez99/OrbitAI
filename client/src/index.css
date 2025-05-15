@@ -3,38 +3,53 @@
 @tailwind utilities;
 
 :root {
-  --background: 222 38% 8%;
-  --foreground: 210 40% 98%;
-  --muted: 217 19% 27%;
-  --muted-foreground: 215 16% 65%;
-  --popover: 222 38% 8%;
-  --popover-foreground: 210 40% 98%;
-  --card: 222 38% 12%;
-  --card-foreground: 210 40% 98%;
-  --border: 217 19% 27%;
-  --input: 217 19% 27%;
-  --primary: 210 40% 98%;
-  --primary-foreground: 222 47% 11%;
-  --secondary: 217 19% 27%;
-  --secondary-foreground: 210 40% 98%;
-  --accent: 173 83% 83%;
-  --accent-foreground: 222 47% 11%;
-  --destructive: 0 84% 60%;
-  --destructive-foreground: 210 40% 98%;
-  --ring: 215 20.2% 65.1%;
-  --radius: 1rem;
-  
-  /* Custom colors for Orbit */
-  --surface: 0 0% 12%;
-  --build-mode: 270 67% 84%;
-  --maintain-mode: 190 91% 71%;
-  --recover-mode: 0 84% 60%;
-  --cta: 270 67% 84%;
-  --chart-1: 270 67% 84%;
-  --chart-2: 190 91% 71%;
-  --chart-3: 0 84% 60%;
-  --chart-4: 173 83% 83%;
-  --chart-5: 265 89% 73%;
+    /* Orbit Base Colors */
+    --orbit-primary-background-hsl: 240 6% 6%;   /* #0E0E10 Deep Charcoal */
+    --orbit-card-surface-hsl: 240 10% 10%;        /* #1A1A1E Card/Surface */
+    --orbit-border-hsl: 240 6% 18%;               /* #2B2B31 Borders */
+    --orbit-text-primary-hsl: 0 0% 100%;          /* #FFFFFF Text Primary */
+    --orbit-text-secondary-hsl: 240 15% 73%;      /* #B0B0C3 Text Secondary */
+    --orbit-text-muted-hsl: 240 10% 37%;          /* #555568 Text Muted */
+
+    /* Default Mode Accent Colors (Build Mode) - These will be updated dynamically */
+    --orbit-accent-hsl: 260 81% 61%;              /* #7C3AED Build - Electric Indigo */
+    --orbit-accent-foreground-hsl: 0 0% 100%;     /* White for text on accent */
+    --orbit-accent-light-opacity: 0.2;            /* Default opacity for light accents (e.g., bg-orbit-accent-light) */
+
+    /* Shadcn UI Theming Variables (mapped to Orbit Color Strategy) */
+    --background: var(--orbit-primary-background-hsl);
+    --foreground: var(--orbit-text-primary-hsl);
+
+    --card: var(--orbit-card-surface-hsl);
+    --card-foreground: var(--orbit-text-primary-hsl);
+
+    --popover: var(--orbit-card-surface-hsl);
+    --popover-foreground: var(--orbit-text-primary-hsl);
+
+    --primary: var(--orbit-accent-hsl);
+    --primary-foreground: var(--orbit-accent-foreground-hsl);
+    
+    /* Using a darker shade for secondary elements to contrast with primary accent */
+    --secondary: 240 8% 15%; /* Darker than card surface, for less emphasis */
+    --secondary-foreground: var(--orbit-text-secondary-hsl);
+
+    --muted: var(--orbit-card-surface-hsl); /* Muted can use card surface for subtle difference */
+    --muted-foreground: var(--orbit-text-muted-hsl);
+
+    --accent: var(--orbit-accent-hsl);
+    --accent-foreground: var(--orbit-accent-foreground-hsl);
+
+    --destructive: 0 72% 51%; /* A standard, accessible red for destructive actions */
+    --destructive-foreground: 0 0% 100%;
+
+    --border: var(--orbit-border-hsl);
+    --input: var(--orbit-border-hsl); /* Can be slightly lighter if needed: 240 6% 22% */
+    --ring: var(--orbit-accent-hsl); /* Focus ring uses the current mode's accent */
+
+    --radius: 0.75rem; /* Adjusted from 1rem for a slightly tighter look, can be 0.5rem as well */
+
+    /* Removed old custom colors like --surface, --build-mode, --maintain-mode, --recover-mode, --cta, and --chart-* */
+    /* These are replaced by the dynamic --orbit-accent-hsl and base Orbit colors */
 }
 
 @layer base {
@@ -42,8 +57,12 @@
     @apply border-border;
   }
 
-  body {
+  html, body {
+    transition-property: color, background-color, border-color, text-decoration-color, fill, stroke;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    transition-duration: 300ms;
     @apply bg-background text-foreground font-sans antialiased;
+    /* Ensure body uses the CSS vars which are now mapped to Orbit strategy */
   }
 
   h1, h2, h3, h4, h5, h6 {
