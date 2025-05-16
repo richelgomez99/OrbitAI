@@ -18,24 +18,38 @@ model User {
 }
 
 model Reflection {
-  id             String   @id @default(cuid())
-  mood          String   // happy, sad, anxious, energized, tired, stressed, motivated, calm
-  energy        Int      // 0-100 scale
-  cognitiveLoad Int?     // 1-5 scale, optional
-  challenge     String?  // What was challenging today?
-  win           String   // What went well today?
-  journal       String?  // Free-form journal entry
-  mode          String   @default('restore')
-  tags          String[] // For AI-generated tags
-  metadata      Json?    // For future extensibility
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id            String           @id @default(cuid())
   userId        String
-  user          User     @relation(fields: [userId], references: [id])
+  user          User             @relation(fields: [userId], references: [id])
+  
+  // Core fields
+  mood          String
+  energy        Int
+  win           String?
+  challenge     String?
+  journal       String?          @map("comment")
+  
+  // Advanced fields
+  emotionLabel  String?          // e.g., "Overstimulated", "At Ease"
+  cognitiveLoad Int?             // 0-100 scale
+  control      Int?             // 1-5 scale
+  clarityGained Boolean?         // Did the user gain clarity?
+  
+  // Relations
+  groundingStrategies GroundingStrategy[]
+  
+  // Timestamps
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+}
 
-
-  @@index([userId])
-  @@index([createdAt])
+model GroundingStrategy {
+  id           String     @id @default(cuid())
+  name         String     // e.g., "Walk", "Meditation"
+  reflectionId String
+  reflection   Reflection @relation(fields: [reflectionId], references: [id], onDelete: Cascade)
+  
+  @@unique([reflectionId, name])
 }
 
 model FocusSession {

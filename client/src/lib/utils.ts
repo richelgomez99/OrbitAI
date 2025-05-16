@@ -45,16 +45,39 @@ export interface Task {
   createdAt: Date;
 }
 
+export interface GroundingStrategy {
+  id: string;
+  name: string;
+  reflectionId: string;
+}
+
 export interface ReflectionEntry {
   id: string;
-  userId: string; // To associate with the user
-  date: Date;
-  wins: string;
-  struggles: string;
-  journalEntry?: string; // Optional, but can be a longer text
-  mood?: Mood; // Optional, using the existing Mood type
-  tags?: string[];
+  userId: string;
+  mood: Mood;
+  energy: number; // 0-100 scale
+  win?: string;
+  challenge?: string;
+  journal?: string;
+  
+  // Advanced fields
+  emotionLabel?: string;
+  cognitiveLoad?: number; // 0-100 scale
+  controlRating?: number; // 1-5 scale
+  clarityGained?: boolean;
+  
+  // Relations
+  groundingStrategies?: GroundingStrategy[];
+  
+  // Timestamps
+  createdAt: Date;
+  updatedAt: Date;
 }
+
+export const DEFAULT_GROUNDING_STRATEGIES = [
+  'Walk', 'Nap', 'Music', 'Meditation', 
+  'Breathwork', 'Stretching', 'Conversation', 'Quiet time'
+];
 
 export interface Message {
   id: string;

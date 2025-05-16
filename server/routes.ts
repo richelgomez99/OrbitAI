@@ -1,8 +1,12 @@
-import type { Express, Request, Response } from "express";
+import type { Express, Request, Response, RequestHandler } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage"; // PrismaStorage instance
-import { Prisma } from "@prisma/client"; // Import Prisma for types
+import { Prisma, PrismaClient } from "@prisma/client"; // Import Prisma for types
+
+// Initialize Prisma client
+const prisma = new PrismaClient();
 import { z } from 'zod';
+import { DEFAULT_GROUNDING_STRATEGIES, EMOTION_LABELS } from "./constants";
 import { handleContextualMessageRequest, ContextualMessageRequestSchema } from './contextual'; // Import contextual message utilities
 import {
   generateTaskBreakdown, // Will be temporarily unused due to schema changes
@@ -255,11 +259,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get all reflections for the default user
-  app.get("/api/reflections", async (req: Request, res: Response) => {
+  app.get("/api/reflections/legacy", async (req: Request, res: Response) => {
     try {
       const userId = await getDefaultUserId();
-      const reflections = await storage.getReflections(userId);
-      res.json(reflections);
+      const result = await storage.getReflections({ userId, limit: 10 });
+      res.json(result);
     } catch (error) {
       console.error("Failed to fetch reflections:", error);
       res.status(500).json({ error: "Failed to fetch reflections" });
@@ -549,6 +553,188 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     }
   });
+
+  // Get reflection constants
+  app.get("/api/reflections/constants", (req: Request, res: Response) => {
+    res.json({
+      groundingStrategies: DEFAULT_GROUNDING_STRATEGIES,
+      emotionLabels: EMOTION_LABELS
+    });
+  });
+
+  // Define the reflection schema for validation
+  const reflectionInputSchema = z.object({
+    mood: z.string({
+      required_error: "Mood is required",
+      invalid_type_error: "Mood must be a string"
+    }),
+    energy: z.union([z.string(), z.number()])
+      .transform(val => typeof val === 'string' ? parseInt(val, 10) : val)
+      .refine(val => !isNaN(val) && val >= 0 && val <= 100, {
+        message: "Energy must be between 0 and 100"
+      }),
+    win: z.string().optional(),
+    challenge: z.string().optional(),
+    journal: z.string().optional(),
+    // Advanced fields
+    emotionLabel: z.string().optional(),
+    cognitiveLoad: z.union([z.string(), z.number()])
+      .transform(val => val ? parseInt(String(val), 10) : undefined)
+      .refine(val => val === undefined || (val >= 0 && val <= 100), {
+        message: "Cognitive load must be between 0 and 100"
+      })
+      .optional(),
+    control: z.union([z.string(), z.number()])
+      .transform(val => val ? parseInt(String(val), 10) : undefined)
+      .refine(val => val === undefined || (val >= 1 && val <= 5), {
+        message: "Control rating must be between 1 and 5"
+      })
+      .optional(),
+    clarityGained: z.boolean().optional(),
+    groundingStrategies: z.array(z.string())
+      .transform(arr => arr || [])
+      .default([])
+  });
+
+  // Save a reflection - using type assertion to handle the Express response type
+  const saveReflectionHandler = (async (req: Request, res: Response) => {
+    try {
+      const validationResult = reflectionInputSchema.safeParse(req.body);
+      if (!validationResult.success) {
+        const formattedErrors = validationResult.error.format();
+        // Log validation errors for debugging
+        console.log('Validation errors:', JSON.stringify(formattedErrors, null, 2));
+        
+        return res.status(400).json({
+          message: "Invalid reflection data",
+          errors: formattedErrors,
+        });
+      }
+
+      const userId = await getDefaultUserId();
+      const {
+        mood,
+        energy,
+        win,
+        challenge,
+        journal,
+        emotionLabel,
+        cognitiveLoad,
+        control,
+        clarityGained,
+        groundingStrategies = []
+      } = validationResult.data;
+
+      try {
+        // Create the reflection using the storage method
+        const reflection = await storage.createReflection({
+          userId,
+          mood,
+          energy,
+          ...(win && { win }),
+          ...(challenge && { challenge }),
+          ...(journal && { journal }),
+          // Advanced fields
+          ...(emotionLabel && { emotionLabel }),
+          ...(cognitiveLoad !== undefined && { cognitiveLoad }),
+          ...(control !== undefined && { control }),
+          ...(clarityGained !== undefined && { clarityGained }),
+          ...(groundingStrategies?.length > 0 && {
+            groundingStrategies: groundingStrategies.map(name => ({
+              name: name.trim()
+            })).filter(gs => gs.name.length > 0)
+          })
+        });
+
+        // Get the full reflection with relations for the response
+        const fullReflection = await storage.getReflection(reflection.id);
+        
+        // Trigger contextual message if needed
+        const user = await storage.getUser(userId);
+        if (user) {
+          try {
+            await handleContextualMessageRequest({
+              trigger: 'reflection_logged',
+              version: 'v1',
+              context: {
+                mode: 'restore' as const,
+                mood,
+                energyLevel: energy,
+                timeOfDay: (new Date().getHours() < 12 ? 'morning' : 
+                          new Date().getHours() < 17 ? 'afternoon' : 'evening') as 'morning' | 'afternoon' | 'evening',
+                // Include advanced fields in context if available
+                ...(emotionLabel && { emotionLabel }),
+                ...(cognitiveLoad !== undefined && { cognitiveLoad }),
+                ...(control !== undefined && { controlRating: control }),
+                ...(clarityGained !== undefined && { clarityGained }),
+                ...(groundingStrategies?.length > 0 && { groundingStrategies })
+              }
+            });
+          } catch (error) {
+            console.error('Error handling contextual message:', error);
+            // Don't fail the request if contextual message fails
+          }
+        }
+
+        // Return the full reflection with relations
+        if (!fullReflection) {
+          throw new Error('Failed to retrieve created reflection');
+        }
+        
+        const response = {
+          ...fullReflection,
+          // Ensure groundingStrategies is always an array in the response
+          groundingStrategies: fullReflection.groundingStrategies || []
+        };
+        
+        res.status(201).json(response);
+        return;
+      } catch (error) {
+        console.error('Error in storage.createReflection:', error);
+        throw error; // Let the outer catch handle it
+      }
+    } catch (error) {
+      console.error("Failed to save reflection:", error);
+      
+      // Provide more detailed error information in development
+      const errorMessage = process.env.NODE_ENV === 'development' && error instanceof Error
+        ? error.message
+        : 'Failed to save reflection';
+        
+      res.status(500).json({ 
+        error: errorMessage,
+        ...(process.env.NODE_ENV === 'development' && error instanceof Error && { stack: error.stack })
+      });
+    }
+  }) as RequestHandler;
+  
+  app.post("/api/reflections", saveReflectionHandler);
+
+  // Get reflection history with pagination
+  const getReflectionsHandler: RequestHandler = async (req, res) => {
+    try {
+      const userId = await getDefaultUserId();
+      const limit = req.query.limit ? parseInt(String(req.query.limit), 10) : 10;
+      const cursor = req.query.cursor as string | undefined;
+      
+      // Use the storage method to get reflections
+      const result = await storage.getReflections({
+        userId,
+        limit,
+        ...(cursor ? { cursor } : {})
+      });
+      
+      res.json({
+        items: result.items,
+        nextCursor: result.nextCursor
+      });
+    } catch (error) {
+      console.error("Failed to fetch reflections:", error);
+      res.status(500).json({ error: "Failed to fetch reflections" });
+    }
+  };
+  
+  app.get("/api/reflections", getReflectionsHandler);
 
   const httpServer = createServer(app);
   return httpServer;

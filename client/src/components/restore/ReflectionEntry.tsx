@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { Button } from '../ui/button';
 import { Save, Loader2 } from 'lucide-react';
 import { Mood } from '@/lib/utils';
+import { AdvancedInsights } from './AdvancedInsights';
 
 interface ReflectionEntryProps {
   onSubmit: (reflection: {
@@ -10,6 +11,11 @@ interface ReflectionEntryProps {
     struggles: string;
     mood: Mood;
     journalEntry: string;
+    emotionLabel?: string;
+    cognitiveLoad?: number;
+    controlRating?: number;
+    groundingStrategies: string[];
+    clarityGained?: boolean | null;
   }) => Promise<void>;
 }
 
@@ -18,6 +24,11 @@ export const ReflectionEntry: React.FC<ReflectionEntryProps> = ({ onSubmit }) =>
   const [struggles, setStruggles] = useState('');
   const [mood, setMood] = useState<Mood>('neutral');
   const [journalEntry, setJournalEntry] = useState('');
+  const [emotionLabel, setEmotionLabel] = useState<string>();
+  const [cognitiveLoad, setCognitiveLoad] = useState<number>();
+  const [controlRating, setControlRating] = useState<number>();
+  const [groundingStrategies, setGroundingStrategies] = useState<string[]>([]);
+  const [clarityGained, setClarityGained] = useState<boolean | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
 
@@ -40,26 +51,88 @@ export const ReflectionEntry: React.FC<ReflectionEntryProps> = ({ onSubmit }) =>
     setIsSubmitting(true);
     
     try {
+      // Prepare the reflection data
+      const reflectionData = {
+        mood,
+        energy: 50, // Default energy level, can be made configurable
+        win: wins,
+        challenge: struggles,
+        journal: journalEntry,
+        // Advanced fields - only include if they have values
+        ...(emotionLabel && { emotionLabel }),
+        ...(cognitiveLoad !== undefined && { cognitiveLoad }),
+        ...(controlRating !== undefined && { control: controlRating }),
+        ...(clarityGained !== null && { clarityGained }),
+        groundingStrategies: groundingStrategies || []
+      };
+
+      // Submit to the API
+      const response = await fetch('/api/reflections', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(reflectionData),
+      });
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error.message || 'Failed to save reflection');
+      }
+
+      const result = await response.json();
+      
+      // Call the onSubmit callback with the result
       await onSubmit({
         wins,
         struggles,
         mood,
-        journalEntry: journalEntry.trim() || 'No journal entry',
+        journalEntry,
+        emotionLabel,
+        cognitiveLoad,
+        controlRating,
+        groundingStrategies,
+        clarityGained
       });
       
+      // Reset form
+      setWins('');
+      setStruggles('');
+      setJournalEntry('');
+      setEmotionLabel(undefined);
+      setCognitiveLoad(undefined);
+      setControlRating(undefined);
+      setGroundingStrategies([]);
+      setClarityGained(null);
+      
       setIsSubmitted(true);
-      // Reset form after successful submission
-      setTimeout(() => {
-        setWins('');
-        setStruggles('');
-        setMood('neutral');
-        setJournalEntry('');
-        setIsSubmitted(false);
-      }, 2000);
+      setTimeout(() => setIsSubmitted(false), 3000);
     } catch (error) {
-      console.error('Error submitting reflection:', error);
+      console.error('Failed to save reflection:', error);
+      // Handle error (e.g., show toast)
+      alert(error instanceof Error ? error.message : 'Failed to save reflection');
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleAdvancedChange = (field: string, value: any) => {
+    switch (field) {
+      case 'emotionLabel':
+        setEmotionLabel(value);
+        break;
+      case 'cognitiveLoad':
+        setCognitiveLoad(value);
+        break;
+      case 'controlRating':
+        setControlRating(value);
+        break;
+      case 'groundingStrategies':
+        setGroundingStrategies(value);
+        break;
+      case 'clarityGained':
+        setClarityGained(value);
+        break;
     }
   };
 
@@ -154,7 +227,21 @@ export const ReflectionEntry: React.FC<ReflectionEntryProps> = ({ onSubmit }) =>
         />
       </div>
 
-      <div className="pt-2">
+      {/* Advanced Insights Section */}
+      <div className="mt-4">
+        <AdvancedInsights
+          values={{
+            emotionLabel,
+            cognitiveLoad,
+            controlRating,
+            groundingStrategies,
+            clarityGained,
+          }}
+          onChange={handleAdvancedChange}
+        />
+      </div>
+
+      <div className="pt-4">
         <Button
           type="submit"
           disabled={isSubmitting || !wins.trim() || !struggles.trim()}

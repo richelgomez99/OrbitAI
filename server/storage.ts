@@ -16,6 +16,72 @@ export class PrismaStorage {
     return prisma.user.create({ data });
   }
 
+  // Reflection methods
+  async createReflection(data: {
+    userId: string;
+    mood: string;
+    energy: number;
+    win?: string;
+    challenge?: string;
+    journal?: string;
+    emotionLabel?: string;
+    cognitiveLoad?: number;
+    control?: number;
+    clarityGained?: boolean;
+    groundingStrategies?: Array<{ name: string }>;
+  }): Promise<Reflection> {
+    const { userId, groundingStrategies = [], ...reflectionData } = data;
+    
+    return prisma.reflection.create({
+      data: {
+        ...reflectionData,
+        user: { connect: { id: userId } },
+        ...(groundingStrategies.length > 0 && {
+          groundingStrategies: {
+            create: groundingStrategies
+          }
+        })
+      },
+      include: {
+        groundingStrategies: true
+      }
+    });
+  }
+
+  async getReflections(options: {
+    userId: string;
+    limit: number;
+    cursor?: string;
+  }): Promise<{
+    items: Array<Reflection & { groundingStrategies: Array<{ name: string }> }>;
+    nextCursor: string | null;
+  }> {
+    const { userId, limit, cursor } = options;
+    
+    const items = await prisma.reflection.findMany({
+      where: {
+        userId,
+        ...(cursor ? { id: { lt: cursor } } : {})
+      },
+      take: limit + 1, // Get one extra to determine next cursor
+      orderBy: { createdAt: 'desc' },
+      include: {
+        groundingStrategies: true
+      }
+    });
+
+    let nextCursor = null;
+    if (items.length > limit) {
+      const nextItem = items.pop();
+      nextCursor = nextItem?.id || null;
+    }
+
+    return {
+      items: items as Array<Reflection & { groundingStrategies: Array<{ name: string }> }>,
+      nextCursor
+    };
+  }
+
   // Task methods
   async getTasks(userId: string, options?: {
     status?: 'todo' | 'inprogress' | 'done' | 'blocked' | 'pending';
@@ -67,17 +133,12 @@ export class PrismaStorage {
     return prisma.task.findMany({ where: { userId }, orderBy: { createdAt: 'desc' } });
   }
 
-  // Reflection methods
-  async getReflections(userId: string): Promise<Reflection[]> {
-    return prisma.reflection.findMany({ where: { userId }, orderBy: { createdAt: 'desc' } });
-  }
-
-  async getReflection(id: string): Promise<Reflection | null> {
-    return prisma.reflection.findUnique({ where: { id } });
-  }
-
-  async createReflection(data: Prisma.ReflectionCreateInput): Promise<Reflection> {
-    return prisma.reflection.create({ data });
+  // Get a single reflection by ID with its grounding strategies
+  async getReflection(id: string): Promise<(Reflection & { groundingStrategies: Array<{ name: string }> }) | null> {
+    return prisma.reflection.findUnique({ 
+      where: { id },
+      include: { groundingStrategies: true }
+    });
   }
 
   // Message methods
