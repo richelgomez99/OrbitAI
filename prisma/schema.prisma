@@ -18,13 +18,24 @@ model User {
 }
 
 model Reflection {
-  id        String   @id @default(cuid())
-  mood      String
-  energy    Int
-  comment   String?
-  createdAt DateTime @default(now())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id])
+  id             String   @id @default(cuid())
+  mood          String   // happy, sad, anxious, energized, tired, stressed, motivated, calm
+  energy        Int      // 0-100 scale
+  cognitiveLoad Int?     // 1-5 scale, optional
+  challenge     String?  // What was challenging today?
+  win           String   // What went well today?
+  journal       String?  // Free-form journal entry
+  mode          String   @default('restore')
+  tags          String[] // For AI-generated tags
+  metadata      Json?    // For future extensibility
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  userId        String
+  user          User     @relation(fields: [userId], references: [id])
+
+
+  @@index([userId])
+  @@index([createdAt])
 }
 
 model FocusSession {
