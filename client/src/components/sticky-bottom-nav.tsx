@@ -5,7 +5,8 @@ import {
   Heart, 
   MessageSquare,
   Plus,
-  Zap
+  Zap,
+  ClipboardList // Added for Tasks icon
 } from "lucide-react";
 import { cn, getModeTheme, type Mode, type ModeTheme } from "@/lib/utils";
 import { useOrbit } from "@/context/orbit-context";
@@ -33,6 +34,7 @@ export function StickyBottomNav() {
     { icon: <Construction size={24} />, label: "Build", route: "/build", mode: "build" as Mode },
     { icon: <Zap size={24} />, label: "Flow", route: "/flow", mode: "flow" as Mode },
     { icon: <Heart size={24} />, label: "Restore", route: "/restore", mode: "restore" as Mode },
+    { icon: <ClipboardList size={24} />, label: "Tasks", route: "/tasks", mode: "" as any }, // Added Tasks item
     { icon: <MessageSquare size={24} />, label: "Chat", route: "/chat", mode: "" as any } // Chat doesn't have a mode theme
   ];
 

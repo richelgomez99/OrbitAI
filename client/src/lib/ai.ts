@@ -1,14 +1,14 @@
 import { apiRequest } from "./queryClient";
-import { Mode, Mood, Priority } from "./utils"; // Added Priority for completeness, Mode is key here
+import { Mode, Mood, Priority, TaskStatus } from "./utils"; // Added Priority and TaskStatus for completeness
 
 // Define context structures for sending messages to the AI assistant
 interface AssistantTaskContext {
   id: string;
   title: string;
   description?: string;
-  priority: string; // 'low', 'medium', 'high'
+  priority: Priority; // 'low', 'medium', 'high'
   due: string | null; // Formatted due date or null
-  status: "todo" | "done" | "snoozed"; // Should primarily be "todo" for context
+  status: TaskStatus; // Use the TaskStatus type from utils
   estimatedTime?: number; // in minutes
   pendingSubtaskCount?: number;
   pendingSubtaskTitles?: string[]; // Titles of first few (e.g., 2-3) pending subtasks

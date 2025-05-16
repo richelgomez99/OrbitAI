@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage"; // PrismaStorage instance
 import { Prisma } from "@prisma/client"; // Import Prisma for types
 import { z } from 'zod';
+import { handleContextualMessageRequest, ContextualMessageRequestSchema } from './contextual'; // Import contextual message utilities
 import {
   generateTaskBreakdown, // Will be temporarily unused due to schema changes
   generateChatResponse,
@@ -492,71 +493,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // CONTEXTUAL ASSISTANT MESSAGE GENERATION
-  function generateContextualAssistantMessage(trigger: string, context?: any): string {
-    let message = Personality.chatNudges[Math.floor(Math.random() * Personality.chatNudges.length)]; // Default to a generic nudge
-
-    switch (trigger) {
-      case 'mode_change':
-        if (context?.currentMode && Personality.modeGreetings[context.currentMode as keyof typeof Personality.modeGreetings]) {
-          message = Personality.modeGreetings[context.currentMode as keyof typeof Personality.modeGreetings];
-        }
-        break;
-      case 'reflection_logged':
-        if (context?.mood) {
-            const moodLowerCase = context.mood.toLowerCase();
-            if (moodLowerCase.includes('positive') || moodLowerCase.includes('good') || moodLowerCase.includes('great') || moodLowerCase.includes('energized') || moodLowerCase.includes('happy')) {
-              message = Personality.reflectionResponses.positive_mood;
-            } else if (moodLowerCase.includes('negative') || moodLowerCase.includes('stressed') || moodLowerCase.includes('drained') || moodLowerCase.includes('sad') || moodLowerCase.includes('anxious')) {
-              message = Personality.reflectionResponses.negative_mood;
-            } else {
-              message = Personality.reflectionResponses.neutral_mood;
-            }
-        } else {
-            message = Personality.reflectionResponses.neutral_mood; // Default if mood not provided
-        }
-        break;
-      case 'energy_low':
-        message = Personality.lowEnergyPrompts[Math.floor(Math.random() * Personality.lowEnergyPrompts.length)];
-        break;
-      case 'no_task':
-        message = Personality.noTaskPrompts[Math.floor(Math.random() * Personality.noTaskPrompts.length)];
-        break;
-      case 'chat_opened':
-        // Default message is already a chat nudge from initialization
-        break;
-      default:
-        console.warn(`Unknown contextual trigger: ${trigger}`);
-        break;
-    }
-    return message;
-  }
 
   app.post("/api/contextual-message", async (req: Request, res: Response) => {
     try {
-      const validationResult = contextualMessageSchema.safeParse(req.body);
+      // Validate the request against our schema
+      const validationResult = ContextualMessageRequestSchema.safeParse(req.body);
+      
       if (!validationResult.success) {
         return res.status(400).json({
-          error: "Invalid input for contextual message generation",
-          details: validationResult.error.flatten().fieldErrors,
+          error: 'Invalid request data',
+          details: validationResult.error.format()
         });
       }
-
-      const { trigger, context } = validationResult.data;
-      const userId = await getDefaultUserId();
-
-      const assistantMessageContent = generateContextualAssistantMessage(trigger, context);
-
-      const newMessage = await storage.createMessage({
-        role: 'assistant',
-        content: assistantMessageContent,
-        user: { connect: { id: userId } },
-      });
-
-      res.status(201).json({ chatMessage: newMessage });
+      
+      // Handle the contextual message request
+      const response = await handleContextualMessageRequest(validationResult.data);
+      
+      // Return the response
+      res.json(response);
+      
     } catch (error) {
-      console.error("Failed to generate contextual message:", error);
-      res.status(500).json({ error: "Failed to generate contextual message" });
+      console.error('Error generating contextual message:', error);
+      res.status(500).json({ 
+        version: 'v1',
+        error: 'Failed to generate message',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
     }
   });
 

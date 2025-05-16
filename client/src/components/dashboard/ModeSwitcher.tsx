@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useOrbit } from '@/context/orbit-context';
-import { Mode, cn, getModeTheme } from '@/lib/utils';
+import { Mode, ModeConfig, cn, getModeTheme, MODE_CONFIG } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { Check, ChevronRight, Zap, Waves, Leaf } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -10,89 +11,214 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
+import { motion, AnimatePresence } from 'framer-motion';
 
-// Define the order of modes in the switcher
-const availableModes: Mode[] = ['build', 'flow', 'restore'];
+const MODE_ICONS = {
+  build: <Zap className="w-5 h-5" />,
+  flow: <Waves className="w-5 h-5" />,
+  restore: <Leaf className="w-5 h-5" />,
+} as const;
 
 const ModeSwitcher: React.FC = () => {
   const { mode: activeMode, setMode, showModeSwitcher, setShowModeSwitcher, addAssistantMessage } = useOrbit();
+  const [selectedMode, setSelectedMode] = useState<Mode | null>(null);
+  const [isTransitioning, setIsTransitioning] = useState(false);
 
-  const handleModeSelect = (selectedMode: Mode) => {
-    setMode(selectedMode);
-    setShowModeSwitcher(false);
+  // Reset selection when dialog is opened/closed
+  useEffect(() => {
+    if (showModeSwitcher) {
+      setSelectedMode(null);
+    }
+  }, [showModeSwitcher]);
 
-    // Trigger contextual message
-    (async () => {
-      try {
-        const response = await fetch('/api/contextual-message', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            trigger: 'mode_change',
-            context: {
-              currentMode: selectedMode,
-            },
-          }),
-        });
-        if (response.ok) {
-          const assistantMessage = await response.json();
-          // console.log('Contextual message received:', assistantMessage);
-          // TODO: Add assistantMessage to chat UI. For now, assuming addMessage from useOrbit handles this.
-          if (addAssistantMessage && assistantMessage.chatMessage && typeof assistantMessage.chatMessage.content === 'string') {
-            addAssistantMessage(assistantMessage.chatMessage.content);
-          } else {
-            console.warn('addAssistantMessage function not available or message format/content incorrect from /api/contextual-message for mode_change. Received:', assistantMessage);
-          }
-        } else {
-          console.error('Failed to fetch contextual message for mode_change:', response.statusText);
-        }
-      } catch (error) {
-        console.error('Error fetching contextual message for mode_change:', error);
-      }
-    })();
+  const handleModeSelect = (mode: Mode) => {
+    setSelectedMode(mode);
   };
 
-  if (!showModeSwitcher) {
-    return null; // Don't render anything if not visible
-  }
+  const confirmModeSelection = async () => {
+    if (!selectedMode) return;
+    
+    setIsTransitioning(true);
+    
+    // Add a small delay for the transition
+    await new Promise(resolve => setTimeout(resolve, 300));
+    
+    setMode(selectedMode);
+    setShowModeSwitcher(false);
+    setIsTransitioning(false);
+
+    // Trigger contextual message
+    try {
+      const response = await fetch('/api/contextual-message', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          version: 'v1',
+          trigger: 'mode_change',
+          context: { mode: selectedMode }
+        }),
+      });
+      
+      if (response.ok) {
+        const { chatMessage } = await response.json();
+        if (addAssistantMessage && chatMessage?.content) {
+          addAssistantMessage(chatMessage.content);
+        }
+      }
+    } catch (error) {
+      console.error('Error triggering contextual message:', error);
+    }
+  };
+
+  if (!showModeSwitcher) return null;
+
+  const renderModeSelection = () => (
+    <AnimatePresence mode="wait">
+      <motion.div
+        key="mode-selection"
+        initial={{ opacity: 0, x: -10 }}
+        animate={{ opacity: 1, x: 0 }}
+        exit={{ opacity: 0, x: 10 }}
+        transition={{ duration: 0.2 }}
+        className="space-y-6"
+      >
+        <DialogHeader>
+          <DialogTitle className="text-2xl font-bold text-center">Select Your Focus</DialogTitle>
+          <DialogDescription className="text-center text-muted-foreground">
+            Choose how you want to work right now
+          </DialogDescription>
+        </DialogHeader>
+        
+        <div className="grid gap-3">
+          {(Object.entries(MODE_CONFIG) as [Mode, ModeConfig][]).map(([mode, config]) => (
+            <Button
+              key={mode}
+              variant={selectedMode === mode ? 'default' : 'outline'}
+              onClick={() => handleModeSelect(mode)}
+              className={cn(
+                'h-auto p-4 justify-between group transition-all duration-200',
+                selectedMode === mode && 'ring-2 ring-offset-2 ring-offset-background',
+                `hover:border-${mode}-400/50`
+              )}
+            >
+              <div className="flex items-center gap-3">
+                <div className={cn(
+                  'p-2 rounded-lg',
+                  selectedMode === mode 
+                    ? 'bg-background/20' 
+                    : 'bg-muted/50 group-hover:bg-muted/70'
+                )}>
+                  {MODE_ICONS[mode]}
+                </div>
+                <div className="text-left">
+                  <div className="font-medium">{config.label}</div>
+                  <div className="text-xs text-muted-foreground">{config.description}</div>
+                </div>
+              </div>
+              <ChevronRight className={cn(
+                'w-5 h-5 transition-transform duration-200',
+                selectedMode === mode ? 'scale-125' : 'opacity-0 group-hover:opacity-100'
+              )} />
+            </Button>
+          ))}
+        </div>
+      </motion.div>
+    </AnimatePresence>
+  );
+
+  const renderModeConfirmation = () => {
+    if (!selectedMode) return null;
+    const config = MODE_CONFIG[selectedMode];
+    
+    return (
+      <AnimatePresence mode="wait">
+        <motion.div
+          key="mode-confirmation"
+          initial={{ opacity: 0, x: 10 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: -10 }}
+          transition={{ duration: 0.2 }}
+          className="space-y-6"
+        >
+          <DialogHeader>
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 mb-4">
+              <div className="text-2xl">{config.emoji}</div>
+            </div>
+            <DialogTitle className="text-2xl font-bold text-center">
+              Switch to {config.label} Mode?
+            </DialogTitle>
+            <DialogDescription className="text-center">
+              {config.description}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div className="text-sm text-muted-foreground">
+              <span className="font-medium">Quick tips:</span>
+              <ul className="mt-2 space-y-2">
+                {config.tips.map((tip, i) => (
+                  <li key={i} className="flex items-start gap-2">
+                    <Check className="h-4 w-4 mt-0.5 text-green-500 flex-shrink-0" />
+                    <span>{tip}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </motion.div>
+      </AnimatePresence>
+    );
+  };
 
   return (
     <Dialog open={showModeSwitcher} onOpenChange={setShowModeSwitcher}>
-      <DialogContent className="sm:max-w-md rounded-lg border border-neutral-700 bg-neutral-900 text-neutral-50">
-        <DialogHeader>
-          <DialogTitle className="text-xl font-semibold text-center text-neutral-50">Switch Mode</DialogTitle>
-          <DialogDescription className="text-center text-neutral-400">
-            Select your current operational mode to tailor your OrbitAI experience.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 py-4">
-          {availableModes.map((modeValue) => {
-            const { label, emoji, description } = getModeTheme(modeValue);
-            return (
-            <Button
-              key={modeValue}
-              variant={activeMode === modeValue ? 'default' : 'outline'}
-              onClick={() => handleModeSelect(modeValue)}
-              className={cn(
-                "w-full h-auto flex flex-col items-center justify-center p-4 rounded-lg border text-center transition-all duration-150 ease-in-out",
-                activeMode === modeValue
-                  ? "bg-primary text-primary-foreground border-primary shadow-lg scale-105"
-                  : "text-muted-foreground bg-card hover:bg-accent hover:text-accent-foreground border-border"
-              )}
-              style={activeMode === modeValue ? { borderColor: `hsl(var(--accent))`, boxShadow: `0 0 15px hsla(var(--accent), 0.5)` } : {}}
-            >
-              <span className="text-4xl mb-2" role="img" aria-label={label}>{emoji}</span>
-              <span className="font-semibold text-sm mb-1">{label}</span>
-              <span className="text-xs text-muted-foreground px-1 text-center">{description}</span>
-            </Button>
-          );})}
+      <DialogContent className={cn(
+        'sm:max-w-md border-0 p-0 overflow-hidden',
+        {
+          'bg-gradient-to-b from-purple-950/80 to-background': selectedMode === 'build',
+          'bg-gradient-to-b from-sky-950/80 to-background': selectedMode === 'flow',
+          'bg-gradient-to-b from-violet-950/80 to-background': selectedMode === 'restore',
+          'bg-background': !selectedMode,
+        }
+      )}>
+        <div className="p-6">
+          {!selectedMode ? renderModeSelection() : renderModeConfirmation()}
         </div>
-        <DialogFooter className="sm:justify-center">
-          <Button variant="ghost" onClick={() => setShowModeSwitcher(false)} className="text-neutral-400 hover:text-neutral-200">
-            Cancel
-          </Button>
+        
+        <DialogFooter className="px-6 py-4 border-t bg-gradient-to-r from-background/80 via-background/50 to-background/80">
+          {!selectedMode ? (
+            <Button 
+              variant="outline" 
+              onClick={() => setShowModeSwitcher(false)}
+              className="w-full"
+            >
+              Cancel
+            </Button>
+          ) : (
+            <div className="flex w-full gap-3">
+              <Button 
+                variant="outline" 
+                onClick={() => setSelectedMode(null)}
+                className="flex-1"
+              >
+                Back
+              </Button>
+              <Button 
+                onClick={confirmModeSelection}
+                className="flex-1 gap-2"
+                disabled={isTransitioning}
+              >
+                {isTransitioning ? (
+                  'Switching...'
+                ) : (
+                  <>
+                    <span>Switch to {selectedMode}</span>
+                    <ChevronRight className="h-4 w-4" />
+                  </>
+                )}
+              </Button>
+            </div>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

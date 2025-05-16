@@ -38,19 +38,22 @@ model FocusSession {
 }
 
 model Task {
-  id              String    @id @default(cuid())
+  id              String   @id @default(cuid())
   title           String
-  content         String?   // Mapped from Drizzle's 'description'
-  status          String    // E.g., "todo", "inprogress", "done"
-  priority        String?   // E.g., "high", "medium", "low"
-  estimatedTime   Int?      // In minutes
-  mode            String?   // E.g., "build", "flow", "restore"
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  userId          String    // Assuming tasks must have a user
-  user            User      @relation(fields: [userId], references: [id])
+  content         String?  // Mapped from Drizzle's 'description'
+  status          String   @default("TODO") // Using string with enum in TypeScript
+  priority        String   @default("MEDIUM") // Using string with enum in TypeScript
+  estimatedTime   Int?     // In minutes
+  mode            String?  // Using string with enum in TypeScript
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  userId          String   // Assuming tasks must have a user
+  user            User     @relation(fields: [userId], references: [id])
   messages        Message[] @relation("TaskMessages") // Explicit relation name
 }
+
+// Note: We're using string fields with enum validation in TypeScript code
+// instead of database enums to avoid migration issues and improve flexibility
 
 model Message {
   id            String    @id @default(cuid())

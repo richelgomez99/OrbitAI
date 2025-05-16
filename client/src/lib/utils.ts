@@ -6,15 +6,32 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export type Mode = "build" | "flow" | "restore";
-export type Mood = "stressed" | "motivated" | "calm";
+export type Mood = "happy" | "neutral" | "sad" | "anxious" | "energized" | "tired" | "stressed" | "motivated" | "calm";
 export type Priority = "low" | "medium" | "high";
+
+// Define task status as a union type to ensure type safety
+export type TaskStatus = 'todo' | 'inprogress' | 'done' | 'blocked' | 'pending';
+
+// Type guard to check if a string is a valid TaskStatus
+export function isTaskStatus(value: string): value is TaskStatus {
+  return ['todo', 'inprogress', 'done', 'blocked', 'pending'].includes(value.toLowerCase());
+}
+
+// Normalize task status to ensure it matches the TaskStatus type
+export function normalizeTaskStatus(status: string): TaskStatus {
+  const lowerStatus = status.toLowerCase();
+  if (isTaskStatus(lowerStatus)) {
+    return lowerStatus;
+  }
+  return 'todo'; // Default to 'todo' if status is invalid
+}
 
 export interface Task {
   id: string;
   user_id: string; // Changed from userId, made non-optional string
   title: string;
   description?: string;
-  status: "todo" | "done" | "snoozed";
+  status: TaskStatus;
   priority: Priority;
   estimatedTime?: number; // in minutes
   dueDate?: Date;
@@ -23,6 +40,7 @@ export interface Task {
   tags?: string[];
   friction?: number; // Tracks how many times a task has been snoozed
   lastUpdated?: Date;
+  updatedAt?: Date; // For tracking when the task was last updated
   isAiGenerated?: boolean;
   createdAt: Date;
 }
@@ -106,20 +124,78 @@ export interface ModeTheme {
   description?: string; // Optional description for mode switcher
 }
 
-export function getModeTheme(mode: Mode): ModeTheme {
-  switch(mode) {
-    case 'build':
-      return { accentHsl: '260 81% 61%', label: 'Build', emoji: '🛠️', description: 'Execute, progress, deep work.' }; // Electric Indigo
-    case 'flow':
-      return { accentHsl: '200 75% 55%', label: 'Flow', emoji: '🌊', description: 'Light, reactive, intuitive execution.' }; // Cool Blue for calm efficiency
-    case 'restore':
-      return { accentHsl: '271 70% 70%', label: 'Restore', emoji: '💆‍♀️', description: 'Regain energy, ease in.' }; // Soft Purple for recovery
-    default:
-      // Fallback, though theoretically unreachable with TypeScript
-      const _exhaustiveCheck: never = mode;
-      console.warn(`Unknown mode: ${_exhaustiveCheck}, falling back to build theme.`);
-      return { accentHsl: '260 81% 61%', label: 'Unknown', emoji: '❓', description: 'Error.' };
+export interface ModeConfig extends ModeTheme {
+  bgGradient: string;
+  textColor: string;
+  buttonVariant: 'default' | 'secondary' | 'destructive' | 'outline' | 'ghost' | 'link';
+  focusRing: string;
+  taskCardClass: string;
+  headerClass: string;
+  description: string;
+  tips: string[];
+}
+
+export const MODE_CONFIG: Record<Mode, ModeConfig> = {
+  build: {
+    accentHsl: '260 81% 61%',
+    label: 'Build',
+    emoji: '🚀',
+    bgGradient: 'from-purple-600/10 to-indigo-600/10',
+    textColor: 'text-purple-200',
+    buttonVariant: 'default',
+    focusRing: 'focus-visible:ring-purple-500',
+    taskCardClass: 'border-purple-500/30 bg-gradient-to-br from-purple-900/30 to-indigo-900/30',
+    headerClass: 'bg-gradient-to-r from-purple-900/80 to-indigo-900/80',
+    description: 'Focused execution mode for deep work and progress',
+    tips: [
+      'Break down large tasks into smaller, actionable items',
+      'Use time blocking to maintain focus',
+      'Leverage the Pomodoro technique for sustained concentration'
+    ]
+  },
+  flow: {
+    accentHsl: '200 75% 55%',
+    label: 'Flow',
+    emoji: '🌊',
+    bgGradient: 'from-sky-600/10 to-blue-600/10',
+    textColor: 'text-sky-200',
+    buttonVariant: 'secondary',
+    focusRing: 'focus-visible:ring-sky-500',
+    taskCardClass: 'border-sky-500/30 bg-gradient-to-br from-sky-900/30 to-blue-900/30',
+    headerClass: 'bg-gradient-to-r from-sky-900/80 to-blue-900/80',
+    description: 'Minimalist mode for distraction-free productivity',
+    tips: [
+      'Focus on one task at a time',
+      'Let the system handle notifications and distractions',
+      'Use the ambient theme to maintain focus'
+    ]
+  },
+  restore: {
+    accentHsl: '271 70% 70%',
+    label: 'Restore',
+    emoji: '🌿',
+    bgGradient: 'from-violet-600/10 to-fuchsia-600/10',
+    textColor: 'text-violet-200',
+    buttonVariant: 'outline',
+    focusRing: 'focus-visible:ring-violet-500',
+    taskCardClass: 'border-violet-500/30 bg-gradient-to-br from-violet-900/30 to-fuchsia-900/30',
+    headerClass: 'bg-gradient-to-r from-violet-900/80 to-fuchsia-900/80',
+    description: 'Gentle mode for recovery and self-care',
+    tips: [
+      'Take regular breaks and stretch',
+      'Practice mindfulness between tasks',
+      'Celebrate small wins and progress'
+    ]
   }
+} as const;
+
+export function getModeTheme(mode: Mode): ModeConfig {
+  return MODE_CONFIG[mode] || {
+    ...MODE_CONFIG.build,
+    label: 'Unknown',
+    emoji: '❓',
+    description: 'Mode not recognized',
+  };
 }
 
 // Mood emoji mapping

@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, ReactNode, useEffect } from "react";
 import { useAuth } from './AuthContext'; // Import useAuth
-import { Mode, Mood, Task, ReflectionEntry, Message, generateId, formatDueDate, Priority, getTimeOfDay } from "@/lib/utils";
+import { Mode, Mood, Task, TaskStatus, ReflectionEntry, Message, generateId, formatDueDate, Priority, getTimeOfDay } from "@/lib/utils";
 import { useLocation } from "wouter";
 import { queryClient } from "@/lib/queryClient";
 import { apiRequest } from "@/lib/queryClient";
@@ -26,6 +26,12 @@ interface OrbitContextType {
   setShowModeSwitcher: (show: boolean) => void;
   showAddTaskModal: boolean;
   setShowAddTaskModal: (show: boolean) => void;
+  taskToEdit: Task | null;
+  setTaskToEdit: (task: Task | null) => void;
+  showTaskDetailModal: boolean;
+  setShowTaskDetailModal: (show: boolean) => void;
+  taskForDetailView: Task | null;
+  setTaskForDetailView: (task: Task | null) => void;
   initialTaskData: Partial<Task> | null;
   openAddTaskModalWithData: (data: Partial<Task>) => void;
   setInitialTaskData: React.Dispatch<React.SetStateAction<Partial<Task> | null>>;
@@ -35,7 +41,7 @@ interface OrbitContextType {
   setTasks: React.Dispatch<React.SetStateAction<Task[]>>; // Added to allow direct state manipulation if needed
   isLoadingTasks: boolean;
   addTask: (task: Partial<Task>) => void;
-  updateTaskStatus: (id: string, status: "todo" | "done" | "snoozed") => void;
+  updateTaskStatus: (id: string, status: TaskStatus) => void;
   updateTask: (task: Task) => void;
   
   // Reflections
@@ -92,6 +98,9 @@ export function OrbitProvider({ children }: OrbitProviderProps) {
   // Modals
   const [showModeSwitcher, setShowModeSwitcher] = useState(false);
   const [showAddTaskModal, setShowAddTaskModal] = useState(false);
+  const [taskToEdit, setTaskToEdit] = useState<Task | null>(null);
+  const [showTaskDetailModal, setShowTaskDetailModal] = useState(false);
+  const [taskForDetailView, setTaskForDetailView] = useState<Task | null>(null);
   const [initialTaskData, setInitialTaskData] = useState<Partial<Task> | null>(null);
   
   // Tasks
@@ -170,8 +179,25 @@ export function OrbitProvider({ children }: OrbitProviderProps) {
       setIsLoadingTasks(true);
       try {
         // Fetch tasks
+        console.log('[DEBUG] Fetching tasks from /api/tasks...');
         const tasksResponse = await apiRequest("GET", "/api/tasks", undefined);
+        console.log('[DEBUG] Tasks response status:', tasksResponse.status);
+        
+        if (!tasksResponse.ok) {
+          const errorText = await tasksResponse.text();
+          console.error('[DEBUG] Failed to fetch tasks:', tasksResponse.status, tasksResponse.statusText, errorText);
+          throw new Error(`Failed to fetch tasks: ${tasksResponse.statusText}`);
+        }
+        
         const tasksData = await tasksResponse.json();
+        console.log('[DEBUG] Tasks data received:', tasksData);
+        
+        if (!Array.isArray(tasksData)) {
+          console.error('[DEBUG] Expected tasks data to be an array, received:', tasksData);
+          throw new Error('Invalid tasks data format');
+        }
+        
+        console.log('[DEBUG] Setting tasks in state:', tasksData);
         setTasks(tasksData); // Always set tasks, even if empty, to reflect backend truth
 
         // Trigger contextual message if no tasks are loaded
@@ -291,13 +317,16 @@ export function OrbitProvider({ children }: OrbitProviderProps) {
     }
   };
 
-  // Update a task's status
-  const updateTaskStatus = async (id: string, status: "todo" | "done" | "snoozed") => {
-    setTasks(prev => 
-      prev.map(task => 
-        task.id === id ? { ...task, status } : task
-      )
-    );
+  // Update task status
+  const updateTaskStatus = async (id: string, status: TaskStatus) => {
+    setTasks(prev => {
+      const taskIndex = prev.findIndex(t => t.id === id);
+      if (taskIndex === -1) return prev;
+      
+      const updatedTasks = [...prev];
+      updatedTasks[taskIndex] = { ...updatedTasks[taskIndex], status };
+      return updatedTasks;
+    });
     
     try {
       await apiRequest("PATCH", `/api/tasks/${id}`, { status });
@@ -306,10 +335,19 @@ export function OrbitProvider({ children }: OrbitProviderProps) {
         recordTaskCompletionForStreak();
       }
     } catch (error) {
-      console.error("Error updating task:", error);
+      console.error("Error updating task status:", error);
+      // Revert optimistic update on error
+      setTasks(prev => {
+        const taskIndex = prev.findIndex(t => t.id === id);
+        if (taskIndex === -1) return prev;
+        
+        const updatedTasks = [...prev];
+        updatedTasks[taskIndex] = { ...updatedTasks[taskIndex], status: prev[taskIndex].status };
+        return updatedTasks;
+      });
     }
   };
-  
+
   // Update an entire task
   const updateTask = async (updatedTask: Task) => {
     setTasks(prev => 
@@ -418,20 +456,27 @@ export function OrbitProvider({ children }: OrbitProviderProps) {
 
     try {
       // Prepare context for the AI
+      const taskContexts = tasks.map(task => ({
+        id: task.id,
+        title: task.title,
+        description: task.description,
+        priority: task.priority,
+        due: task.dueDate ? task.dueDate.toISOString() : null,
+        status: task.status,
+        estimatedTime: task.estimatedTime,
+        tags: task.tags || [],
+        pendingSubtaskCount: task.subtasks?.filter(st => !st.done).length,
+        pendingSubtaskTitles: task.subtasks
+          ?.filter(st => !st.done)
+          .slice(0, 3)
+          .map(st => st.title)
+      }));
+
       const assistantContext = {
         mode,
         motivation: mood, // Mapping mood to motivation for AI context
         energy,
-        tasks: tasks.map(task => ({
-          id: task.id,
-          title: task.title,
-          description: task.description,
-          priority: task.priority,
-          due: task.dueDate ? formatDueDate(task.dueDate) : null,
-          status: task.status,
-          estimatedTime: task.estimatedTime,
-          tags: task.tags,
-        })),
+        tasks: taskContexts
       };
 
       assistantApiContent = await sendMessageToAssistant(content, assistantContext);
@@ -522,6 +567,15 @@ export function OrbitProvider({ children }: OrbitProviderProps) {
     setShowModeSwitcher,
     showAddTaskModal,
     setShowAddTaskModal,
+    taskToEdit,
+    setTaskToEdit,
+    showTaskDetailModal,
+    setShowTaskDetailModal,
+    taskForDetailView,
+    setTaskForDetailView,
+    initialTaskData,
+    openAddTaskModalWithData,
+    setInitialTaskData,
     tasks,
     setTasks,
     isLoadingTasks,
@@ -532,14 +586,11 @@ export function OrbitProvider({ children }: OrbitProviderProps) {
     addReflection,
     messages,
     sendMessage,
-    addAssistantMessage, // Expose the new function
+    addAssistantMessage,
     aiSuggestions,
     setAiSuggestions,
     focusStreak,
-    recordTaskCompletionForStreak,
-    initialTaskData,
-    openAddTaskModalWithData,
-    setInitialTaskData,
+    recordTaskCompletionForStreak
   };
 
   return <OrbitContext.Provider value={value}>{children}</OrbitContext.Provider>;

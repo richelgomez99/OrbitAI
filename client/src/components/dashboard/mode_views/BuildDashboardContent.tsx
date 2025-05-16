@@ -1,10 +1,12 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useOrbit } from '@/context/orbit-context';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Task } from '@/lib/utils'; // Assuming Task type is exported from utils
-import { PlayCircle, Timer, ListChecks, ChevronRight, AlertTriangle, Flame, CircleOff } from 'lucide-react';
+import { Task, Mode, getModeTheme } from '@/lib/utils';
+import { PlayCircle, Timer, ListChecks, ChevronRight, Flame, CircleOff, Clock, Target, CheckCircle, Plus } from 'lucide-react';
+import ModeGuidance from '../ModeGuidance';
 
 const priorityOrder: Record<Task['priority'], number> = {
   high: 1,
@@ -12,19 +14,48 @@ const priorityOrder: Record<Task['priority'], number> = {
   low: 3,
 };
 
-const BuildDashboardContent: React.FC = () => {
-  const { tasks, setMode, setShowAddTaskModal, focusStreak } = useOrbit();
+interface BuildDashboardContentProps {
+  tasks: Task[];
+  sortBy: string;
+}
+
+const BuildDashboardContent: React.FC<BuildDashboardContentProps> = ({ tasks, sortBy }) => {
+  const { setMode, setShowAddTaskModal, focusStreak, setShowTaskDetailModal, setTaskForDetailView } = useOrbit();
 
   const [pomodoroActive, setPomodoroActive] = useState(false);
   const POMODORO_DURATION = 25 * 60; // 25 minutes in seconds
   const [pomodoroTime, setPomodoroTime] = useState(POMODORO_DURATION);
   const [showPomodoroTimer, setShowPomodoroTimer] = useState(false);
 
-  const activeTasks = tasks.filter(task => task.status === 'todo')
-    .sort((a, b) => priorityOrder[a.priority] - priorityOrder[b.priority] || new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+  const activeTasks = React.useMemo(() => 
+    tasks
+      .filter(task => task.status === 'todo')
+      .sort((a, b) => {
+        switch (sortBy) {
+          case 'priority':
+            return priorityOrder[a.priority] - priorityOrder[b.priority] || new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+          case 'dueDate':
+            if (!a.dueDate) return 1;
+            if (!b.dueDate) return -1;
+            return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime() || priorityOrder[a.priority] - priorityOrder[b.priority];
+          case 'created':
+            return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime() || priorityOrder[a.priority] - priorityOrder[b.priority];
+          default:
+            return 0;
+        }
+      }),
+    [tasks, sortBy]
+  );
 
-  const focusTask = activeTasks.length > 0 ? activeTasks[0] : null;
-  const upcomingTasks = activeTasks.slice(1, 4); // Show next 3 upcoming tasks
+  const focusTask = activeTasks[0];
+  const upcomingTasks = activeTasks.slice(1, 4);
+  
+  // Calculate task completion rate for the day
+  const completedToday = tasks.filter(
+    task => task.status === 'done' && 
+    task.lastUpdated && 
+    new Date(task.lastUpdated).toDateString() === new Date().toDateString()
+  ).length;
 
   // Calculate current streak
   const calculateCurrentStreak = (streakArray: boolean[]): number => {
@@ -85,111 +116,282 @@ const BuildDashboardContent: React.FC = () => {
     }
   };
 
+  const modeTheme = getModeTheme('build');
+  
+  // Animation variants
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.1,
+        delayChildren: 0.2
+      }
+    }
+  };
+
+  const itemVariants = {
+    hidden: { y: 20, opacity: 0 },
+    visible: {
+      y: 0,
+      opacity: 1,
+      transition: {
+        duration: 0.5,
+        ease: [0.4, 0, 0.2, 1]
+      }
+    }
+  };
+
+  const statsVariants = {
+    hidden: { scale: 0.9, opacity: 0 },
+    visible: {
+      scale: 1,
+      opacity: 1,
+      transition: {
+        duration: 0.5,
+        ease: 'easeOut'
+      }
+    },
+    hover: {
+      scale: 1.02,
+      transition: { duration: 0.2 }
+    }
+  };
+
   return (
-    <div className="animate-fade-in space-y-6">
+    <motion.div 
+      className="space-y-6"
+      variants={containerVariants}
+      initial="hidden"
+      animate="visible"
+    >
       {/* Streak Display Section */}
-      <Card className="shadow-md">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-lg flex items-center">
-            <Flame className="mr-2 h-5 w-5 text-orange-500" /> Current Streak: {currentStreakCount} day{currentStreakCount === 1 ? '' : 's'}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="flex space-x-2 justify-center pb-4">
-          {focusStreak.map((isActive, index) => (
-            <div key={index} title={`Day ${focusStreak.length - index}`} className={`h-6 w-6 rounded-full flex items-center justify-center border-2 ${isActive ? 'bg-orange-500 border-orange-600' : 'bg-muted border-gray-300'}`}>
-              {isActive ? <Flame className="h-4 w-4 text-white" /> : <CircleOff className="h-4 w-4 text-gray-400" />}
-            </div>
-          ))}
-        </CardContent>
-      </Card>
-
-      {/* Focus Task Section */}
-      <Card className="shadow-lg">
-        <CardHeader>
-          <CardTitle className="flex items-center"><ListChecks className="mr-2 h-6 w-6 text-primary" /> Focus Task</CardTitle>
-          {!focusTask && <CardDescription>No active tasks to focus on. Add some!</CardDescription>}
-        </CardHeader>
-        {focusTask && (
-          <CardContent>
-            <h3 className="text-xl font-semibold mb-1">{focusTask.title}</h3>
-            <div className="flex items-center space-x-2 mb-3">
-              <Badge variant={getPriorityBadgeVariant(focusTask.priority)}>{focusTask.priority.toUpperCase()}</Badge>
-              {focusTask.dueDate && <Badge variant="outline">Due: {new Date(focusTask.dueDate).toLocaleDateString()}</Badge>}
-            </div>
-            {focusTask.description && <p className="text-sm text-neutral-500 mb-3 line-clamp-2">{focusTask.description}</p>}
-            <Button size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground">
-              View Details <ChevronRight className="ml-1 h-4 w-4" />
-            </Button>
-          </CardContent>
-        )}
-      </Card>
-
-      {/* Quick Actions Section */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {showPomodoroTimer && (
-          <Card className="md:col-span-2 p-4 flex flex-col items-center justify-center bg-card text-card-foreground border-primary border-2">
-            <p className="text-4xl font-bold text-primary">{formatTime(pomodoroTime)}</p>
-            <p className="text-sm text-muted-foreground">{pomodoroActive ? "Focus Session in Progress" : "Pomodoro Paused"}</p>
-          </Card>
-        )}
-        <Button 
-          className="w-full py-6 text-lg bg-primary hover:bg-primary/90 text-primary-foreground shadow-md flex items-center justify-center"
-          onClick={handleStartFlowSession}
-        >
-          <PlayCircle className="mr-2 h-6 w-6" /> Start Flow Session
-        </Button>
-        <Button 
-          variant="outline" 
-          className="w-full py-6 text-lg border-primary text-primary hover:bg-primary/10 shadow-md flex items-center justify-center"
-          onClick={handleStartPomodoro}
-        >
-          <Timer className="mr-2 h-6 w-6" /> {pomodoroActive ? 'Pause Pomodoro' : (pomodoroTime < POMODORO_DURATION && pomodoroTime > 0 ? 'Resume Pomodoro' : 'Start Pomodoro')}
-        </Button>
-      </div>
-
-      {/* Upcoming Tasks Section */}
-      {upcomingTasks.length > 0 && (
-        <Card className="shadow-lg">
-          <CardHeader>
-            <CardTitle>Next Up</CardTitle>
-            <CardDescription>Other tasks to tackle.</CardDescription>
+      <motion.div variants={itemVariants}>
+        <Card className="shadow-md overflow-hidden">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg flex items-center">
+              <Flame className="mr-2 h-5 w-5 text-orange-500" /> Current Streak: {currentStreakCount} day{currentStreakCount === 1 ? '' : 's'}
+            </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
-            {upcomingTasks.map(task => (
-              <Card key={task.id} className="p-3 hover:shadow-md transition-shadow">
-                <div className="flex justify-between items-start">
+          <CardContent className="flex space-x-2 justify-center pb-4">
+            {Array(focusStreak.length).fill(false).map((_, index) => {
+              const isActive = index >= focusStreak.length - currentStreakCount;
+              const dayNumber = focusStreak.length - index;
+              return (
+                <div 
+                  key={index}
+                  className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium
+                    ${isActive ? 'bg-orange-500 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-400'}`}
+                  title={`Day ${dayNumber}`}
+                >
+                  {dayNumber}
+                </div>
+              );
+            })}
+          </CardContent>
+        </Card>
+      </motion.div>
+      {/* Mode Guidance */}
+      <motion.div variants={itemVariants}>
+        <ModeGuidance mode="build" />
+      </motion.div>
+      
+      {/* Productivity Stats */}
+      <motion.div 
+        className="grid gap-4 md:grid-cols-3"
+        variants={containerVariants}
+      >
+        <motion.div variants={itemVariants}>
+          <motion.div 
+            className="h-full"
+            variants={statsVariants}
+            whileHover="hover"
+          >
+            <Card className="border-purple-500/30 bg-gradient-to-br from-purple-900/10 to-indigo-900/10 h-full">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
                   <div>
-                    <p className="font-medium">{task.title}</p>
-                    <div className="flex items-center space-x-2 mt-1">
-                      <Badge variant={getPriorityBadgeVariant(task.priority)}>{task.priority}</Badge>
-                      {task.dueDate && <Badge variant="outline">{new Date(task.dueDate).toLocaleDateString()}</Badge>}
-                    </div>
+                    <p className="text-sm font-medium text-muted-foreground">Focus Streak</p>
+                    <p className="text-2xl font-bold">{currentStreakCount} days</p>
                   </div>
-                  <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-primary">
-                    <ChevronRight className="h-5 w-5" />
+                  <div className="p-2 rounded-lg bg-purple-500/10">
+                    <Flame className="w-5 h-5 text-purple-400" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        </motion.div>
+        
+        <motion.div variants={itemVariants}>
+          <motion.div 
+            className="h-full"
+            variants={statsVariants}
+            whileHover="hover"
+          >
+            <Card className="border-purple-500/30 bg-gradient-to-br from-purple-900/10 to-indigo-900/10 h-full">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Active Tasks</p>
+                    <p className="text-2xl font-bold">{activeTasks.length}</p>
+                  </div>
+                  <div className="p-2 rounded-lg bg-purple-500/10">
+                    <ListChecks className="w-5 h-5 text-purple-400" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        </motion.div>
+        
+        <motion.div variants={itemVariants}>
+          <motion.div 
+            className="h-full"
+            variants={statsVariants}
+            whileHover="hover"
+          >
+            <Card className="border-purple-500/30 bg-gradient-to-br from-purple-900/10 to-indigo-900/10 h-full">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Completed Today</p>
+                    <p className="text-2xl font-bold">{completedToday}</p>
+                  </div>
+                  <div className="p-2 rounded-lg bg-purple-500/10">
+                    <CheckCircle className="w-5 h-5 text-purple-400" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        </motion.div>
+      </motion.div>
+
+      {/* Focus Task Card */}
+      <motion.div variants={itemVariants}>
+        <Card className="border-purple-500/30 bg-gradient-to-br from-purple-900/10 to-indigo-900/10">
+          <CardHeader className="pb-3">
+            <div className="flex justify-between items-center">
+              <CardTitle className="text-lg font-semibold flex items-center gap-2">
+                <Target className="w-5 h-5 text-purple-400" />
+                Focus Task
+              </CardTitle>
+              <Badge variant="outline" className="border-purple-500/50 text-purple-400">
+                Build Mode
+              </Badge>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {focusTask ? (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <h3 className="text-lg font-medium">{focusTask.title}</h3>
+                  {focusTask.description && (
+                    <p className="text-sm text-muted-foreground">
+                      {focusTask.description.length > 100 
+                        ? `${focusTask.description.substring(0, 100)}...` 
+                        : focusTask.description}
+                    </p>
+                  )}
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                      focusTask.priority === 'high' ? 'bg-red-100 text-red-800' :
+                      focusTask.priority === 'medium' ? 'bg-yellow-100 text-yellow-800' :
+                      'bg-green-100 text-green-800'
+                    }`}>
+                      {focusTask.priority}
+                    </span>
+                    {focusTask.dueDate && (
+                      <span className="flex items-center">
+                        <Clock className="w-3.5 h-3.5 mr-1" />
+                        {new Date(focusTask.dueDate).toLocaleDateString()}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center justify-between pt-2">
+                  <Button 
+                    variant="default" 
+                    size="sm" 
+                    className="gap-2 bg-purple-600 hover:bg-purple-700"
+                    onClick={() => {
+                      setTaskForDetailView(focusTask);
+                      setShowTaskDetailModal(true);
+                    }}
+                  >
+                    <PlayCircle className="w-4 h-4" />
+                    Start Working
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="gap-2 text-purple-400 border-purple-500/50 hover:bg-purple-500/10"
+                    onClick={() => setShowPomodoroTimer(!showPomodoroTimer)}
+                  >
+                    <Timer className="w-4 h-4" />
+                    {showPomodoroTimer ? 'Hide Timer' : 'Start Pomodoro'}
                   </Button>
                 </div>
-              </Card>
-            ))}
+                
+                {showPomodoroTimer && (
+                  <div className="mt-4 p-4 bg-purple-500/10 rounded-lg">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium">Pomodoro Timer</span>
+                      <span className="text-sm">
+                        {Math.floor(pomodoroTime / 60)}:{(pomodoroTime % 60).toString().padStart(2, '0')}
+                      </span>
+                    </div>
+                    <div className="w-full bg-purple-500/20 rounded-full h-2">
+                      <div 
+                        className="bg-purple-500 h-2 rounded-full transition-all duration-1000 ease-linear"
+                        style={{ width: `${(pomodoroTime / POMODORO_DURATION) * 100}%` }}
+                      />
+                    </div>
+                    <div className="flex justify-between items-center pt-2">
+                      <div className="flex items-center space-x-2">
+                        <Badge variant={getPriorityBadgeVariant(focusTask.priority)}>
+                          {focusTask.priority}
+                        </Badge>
+                        {focusTask.dueDate && (
+                          <div className="flex items-center text-sm text-muted-foreground">
+                            <Clock className="w-4 h-4 mr-1" />
+                            {new Date(focusTask.dueDate).toLocaleDateString()}
+                          </div>
+                        )}
+                      </div>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="ml-auto"
+                        onClick={() => {
+                          setTaskForDetailView(focusTask);
+                          setShowTaskDetailModal(true);
+                        }}
+                      >
+                        View Details <ChevronRight className="w-4 h-4 ml-1" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <CircleOff className="w-12 h-12 mx-auto text-muted-foreground/30 mb-4" />
+                <h3 className="text-lg font-medium mb-2">No focus task</h3>
+                <p className="text-muted-foreground mb-4">All caught up! Add a new task to get started.</p>
+                <Button 
+                  onClick={() => setShowAddTaskModal(true)}
+                  className="gap-2"
+                >
+                  <Plus className="w-4 h-4" /> Add Task
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
-      )}
-      
-      {activeTasks.length === 0 && !focusTask && (
-         <Card className="shadow-lg">
-          <CardContent className="pt-6">
-            <div className="text-center text-neutral-500 py-8">
-              <AlertTriangle className="mx-auto h-12 w-12 text-destructive mb-3" />
-              <p className="text-lg font-semibold">No active tasks!</p>
-              <p>Add new tasks to start building momentum.</p>
-              <Button className="mt-4 bg-primary hover:bg-primary/90 text-primary-foreground" onClick={() => setShowAddTaskModal(true)}>
-                Add New Task
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-    </div>
+      </motion.div>
+    </motion.div>
   );
 };
 

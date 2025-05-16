@@ -15,7 +15,7 @@ import AppPage from "@/pages/App/AppPage";
 import OnboardingFlow from "./pages/Onboarding/OnboardingFlow";
 import ModeSwitcher from "@/components/dashboard/ModeSwitcher"; // Import ModeSwitcher
 import ModeMoodSelectionPage from '@/pages/ModeMoodSelectionPage'; // Added import
-import TasksPage from "@/pages/TasksPage";
+import TasksPage from "@/pages/tasks";
 import SettingsPage from "@/pages/SettingsPage";
 import HelpPage from "@/pages/HelpPage";
 import { StickyBottomNav } from "@/components/sticky-bottom-nav";
@@ -25,6 +25,7 @@ import { AuthProvider, useAuth } from "@/context/AuthContext";
 import { useEffect, useState } from "react"; // Keep only one useState import
 import { useLocation } from "wouter";
 import AddTaskModal from "@/components/add-task-modal";
+import TaskDetailModal from "@/components/TaskDetailModal"; // Import TaskDetailModal
 import ProtectedRoute from "@/components/router/ProtectedRoute";
 
 
@@ -76,6 +77,7 @@ function AppRoutes() {
       
       {showAppNavigation && <StickyBottomNav />}
       <AddTaskModal />
+      <TaskDetailModal /> {/* Add TaskDetailModal here */}
       {isAuthenticated && location.startsWith('/dashboard') && <ModeSwitcher />} {/* ModeSwitcher now uses context */}
     </>
   );

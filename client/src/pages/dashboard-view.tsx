@@ -146,30 +146,12 @@ export default function DashboardView() {
       </div>
       */}
 
-      {/* Dynamically render content based on mode */}
-      <div className="mt-6">
-        {(() => {
-          switch (mode) {
-            case 'build':
-              return <BuildDashboardContent />;
-            case 'restore':
-              return <RestoreDashboardContent />;
-            case 'flow':
-              return <FlowDashboardContent />;
-            default:
-              const _exhaustiveCheck: never = mode;
-              console.warn(`Unhandled mode: ${_exhaustiveCheck}`);
-              return <p>Unknown mode selected. Please refresh or select a mode.</p>;
-          }
-        })()}
-      </div>
-      
-      {/* Sort By */}
+      {/* Sort By and Add Task Button */} 
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.4 }}
-        className="flex justify-between items-center mb-4"
+        transition={{ delay: 0.3 }}
+        className="flex justify-between items-center my-6"
       >
         <div className="flex items-center gap-2">
           <span className="text-sm text-secondary">Sort by:</span>
@@ -178,7 +160,7 @@ export default function DashboardView() {
             onValueChange={setSortBy}
           >
             <SelectTrigger className="w-[120px] bg-surface/50 text-primary text-sm border border-gray-800">
-              <SelectValue />
+              <SelectValue placeholder="Sort by" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="priority">Priority</SelectItem>
@@ -196,6 +178,26 @@ export default function DashboardView() {
           <Plus className="text-[#9F7AEA] h-4 w-4" />
         </Button>
       </motion.div>
+
+      {/* Dynamically render content based on mode */} 
+      <div className="mt-2"> {/* Adjusted margin if needed */}
+        {(() => {
+          switch (mode) {
+            case 'build':
+              return <BuildDashboardContent tasks={tasks} sortBy={sortBy} />;
+            case 'restore': // Assuming RestoreDashboardContent will also need tasks and sortBy
+              // return <RestoreDashboardContent tasks={tasks} sortBy={sortBy} />;
+              return <RestoreDashboardContent />;
+            case 'flow': // Assuming FlowDashboardContent might need tasks and sortBy
+              // return <FlowDashboardContent tasks={tasks} sortBy={sortBy} />;
+              return <FlowDashboardContent />;
+            default:
+              const _exhaustiveCheck: never = mode;
+              console.warn(`Unhandled mode: ${_exhaustiveCheck}`);
+              return <p>Unknown mode selected. Please refresh or select a mode.</p>;
+          }
+        })()}
+      </div>
       
       {/* Today's Focus Card - Commented Out
       <motion.div

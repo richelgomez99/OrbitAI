@@ -1,5 +1,60 @@
 # Orbit Project
 
+This is the Orbit project, a cognitive productivity system that adapts to your mental state and energy levels.
+
+## Features
+
+- **Adaptive Interface**: Changes based on your current mode (Build/Flow/Restore)
+- **Contextual Messaging**: Intelligent, situation-aware assistant responses
+- **Task Management**: AI-assisted task breakdown and prioritization
+- **Reflection Tracking**: Log your mood and energy levels
+- **Responsive Design**: Works on desktop and mobile devices
+
+## Project Structure
+
+- `/client`: Frontend React application (Vite + TypeScript + TailwindCSS)
+- `/server`: Backend server (Node.js + Express)
+  - `/contextual`: Contextual message generation system
+  - `/prisma`: Database schema and migrations
+  - `/routes`: API endpoints
+- `/prisma`: Database schema and migrations
+
+## Contextual Message System
+
+The application includes a sophisticated contextual message system that generates appropriate responses based on user actions and system events. See the [Contextual Message System Documentation](./server/contextual/README.md) for details.
+
+## Contextual Assistant Messages
+
+Trigger messages by sending a POST request to `/api/contextual-message`.
+
+**Example Payloads:**
+
+```json
+{
+  "trigger": "mode_change",
+  "context": { "mode": "flow" }
+}
+
+{
+  "trigger": "energy_low",
+  "context": { "energy": 25 }
+}
+
+{
+  "trigger": "chat_opened",
+  "context": { "timeOfDay": "evening" }
+}
+```
+
+**Available Triggers:**
+- `mode_change`: When the user changes their mode (build/flow/restore)
+- `energy_low`: When the system detects low user energy
+- `reflection_logged`: When a user logs a reflection
+- `no_task`: When there are no active tasks
+- `chat_opened`: When the chat interface is opened
+
+## Getting Started
+
 This is the Orbit project, set up for local development.
 
 ## Orbit Local Development Setup

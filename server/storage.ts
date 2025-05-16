@@ -153,20 +153,20 @@ export async function seedInitialData() {
         await storage.createTask({
           title: 'Explore Orbit AI capabilities',
           content: 'Try out Build, Flow, and Restore modes.',
-          status: 'todo',
-          priority: 'high',
+          status: 'TODO',
+          priority: 'HIGH',
           estimatedTime: 60,
-          mode: 'build',
+          mode: 'BUILD',
           user: { connect: { id: user.id } },
         });
 
         await storage.createTask({
           title: 'Plan next week\'s project sprint',
           content: 'Break down into smaller, manageable tasks.',
-          status: 'todo',
-          priority: 'medium',
+          status: 'TODO',
+          priority: 'MEDIUM',
           estimatedTime: 120,
-          mode: 'build',
+          mode: 'BUILD',
           user: { connect: { id: user.id } },
         });
         console.log('Tasks seeded.');
