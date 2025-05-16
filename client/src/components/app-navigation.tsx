@@ -60,14 +60,14 @@ export default function AppNavigation() {
           </Button>
         </motion.div>
         
-        <Link href="/reflect">
+        <Link href="/restore">
           <Button 
             variant="ghost" 
-            className={`relative flex flex-col items-center px-3 py-2 rounded-lg ${location === "/reflect" ? "text-white" : "text-slate-200 hover:bg-slate-700/50 hover:text-white"}`}
+            className={`relative flex flex-col items-center px-3 py-2 rounded-lg ${location === "/restore" ? "text-white" : "text-slate-200 hover:bg-slate-700/50 hover:text-white"}`}
           >
-            <motion.div animate={{ scale: location === "/reflect" ? 1.2 : 1 }} transition={{ type: 'spring', stiffness: 300, damping: 20 }}><Brain className="h-5 w-5 mb-1" /></motion.div>
+            <motion.div animate={{ scale: location === "/restore" ? 1.2 : 1 }} transition={{ type: 'spring', stiffness: 300, damping: 20 }}><Brain className="h-5 w-5 mb-1" /></motion.div>
             <span className="text-xs">Reflect</span>
-            {location === "/reflect" && (
+            {location === "/restore" && (
               <motion.div
                 className="absolute -bottom-1 left-1/4 right-1/4 h-1 bg-[#EC4899] rounded-full"
                 layoutId="activeNavUnderline"

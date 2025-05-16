@@ -1,0 +1,256 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id            String         @id @default(cuid())
+  email         String         @unique
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  
+  // Relations
+  reflections   Reflection[]
+  sessions      FocusSession[]
+  tasks         Task[]
+  messages      Message[]
+  modeSessions  ModeSession[]
+  modeTransitions ModeTransition[]
+  userStates    UserState[]
+  
+  // Preferences
+  defaultMode   UserMode       @default(BUILD)
+  
+  // Metrics
+  currentStreak Int            @default(0)
+  longestStreak Int            @default(0)
+  lastActive    DateTime?
+}
+
+model Reflection {
+  id               String               @id @default(cuid())
+  userId           String
+  user             User                 @relation(fields: [userId], references: [id])
+  
+  // Core reflection
+  mood             String
+  moodEmoji        String?              // Emoji representation of mood
+  energy           Int                  // 0-100 scale
+  wins             String?              // What went well
+  challenges       String?              // What was challenging
+  journalEntry     String?              // Freeform journal entry
+  
+  // Advanced metrics
+  emotionLabel     String?              // e.g., "Overstimulated", "At Ease"
+  cognitiveLoad    Int?                 // 0-100 scale
+  controlRating    Int?                 // 1-5 scale
+  clarityGained    Boolean?             // Whether clarity was gained
+  
+  // Relations
+  sessionId        String?
+  session          FocusSession?        @relation(fields: [sessionId], references: [id])
+  groundingStrategies GroundingStrategy[] // Strategies used during reflection
+  groundingSources   GroundingSource[]    // Sources that helped ground/restore
+  
+  // Timestamps
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+
+  @@index([userId])
+}
+
+model GroundingStrategy {
+  id             String      @id @default(cuid())
+  name           String      // Name of the grounding strategy
+  reflectionId   String      // Reference to parent reflection
+  reflection     Reflection  @relation(fields: [reflectionId], references: [id], onDelete: Cascade)
+  
+  // Context
+  mode           UserMode    // Which mode was active
+  sessionId      String?     // Associated focus session
+  session        FocusSession? @relation(fields: [sessionId], references: [id])
+  
+  // Timestamps
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  
+  @@index([reflectionId])
+}
+
+model GroundingSource {
+  id           String      @id @default(cuid())
+  name         String      // e.g., "Walk", "Meditation", "Conversation"
+  reflectionId String
+  reflection   Reflection  @relation(fields: [reflectionId], references: [id], onDelete: Cascade)
+  
+  createdAt    DateTime    @default(now())
+  
+  @@index([reflectionId])
+}
+
+model Task {
+  id          String      @id @default(cuid())
+  userId      String
+  user        User        @relation(fields: [userId], references: [id])
+  
+  // Task details
+  title       String
+  description String?     @db.Text
+  status      TaskStatus  @default(TODO)
+  priority    Priority    @default(MEDIUM)
+  mode        UserMode    @default(BUILD)
+  
+  // Time tracking
+  estimatedMinutes Int?
+  timeSpentMinutes Int?     @default(0)
+  dueAt       DateTime?   @db.Timestamptz
+  completedAt DateTime?   @db.Timestamptz
+  
+  // Relations
+  sessions    FocusSession[] @relation("TaskSessions")
+  messages    Message[]    @relation("TaskMessages")
+  userStates  UserState[]
+  
+  // Timestamps
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  
+  // Indexes
+  @@index([userId, status])
+  @@index([userId, priority])
+  @@index([userId, dueAt])
+}
+
+model FocusSession {
+  id              String    @id @default(cuid())
+  userId          String
+  user            User      @relation(fields: [userId], references: [id])
+  
+  // Session details
+  taskId          String?
+  task            Task?     @relation("TaskSessions", fields: [taskId], references: [id])
+  mode            UserMode
+  startTime       DateTime  @default(now())
+  endTime        DateTime?
+  
+  // Metrics
+  energyStart     Int?      // 0-100 scale
+  energyEnd       Int?      // 0-100 scale
+  focusScore      Int?      // 0-100 scale
+  
+  // Relations
+  reflections     Reflection[]
+  groundingStrategies GroundingStrategy[]
+  
+  // Timestamps
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  
+  @@index([userId])
+}
+
+model ModeTransition {
+  id              String    @id @default(cuid())
+  userId          String
+  user            User      @relation(fields: [userId], references: [id])
+  
+  // Transition data
+  fromMode        UserMode
+  toMode          UserMode
+  durationSeconds Int
+  trigger         String    // manual, auto, timeout, task_completion
+  metadata        Json?     // Additional context about the transition
+  
+  // Timestamps
+  createdAt       DateTime  @default(now())
+  
+  // Indexes
+  @@index([userId, createdAt])
+}
+
+model UserState {
+  id            String    @id @default(cuid())
+  userId        String
+  user          User      @relation(fields: [userId], references: [id])
+  
+  // State metrics
+  mood          Int?      // 0-100 scale
+  energy        Int?      // 0-100 scale
+  focus         Int?      // 0-100 scale
+  stress        Int?      // 0-100 scale
+  
+  // Context
+  currentMode   UserMode?
+  currentTaskId String?
+  currentTask   Task?     @relation(fields: [currentTaskId], references: [id])
+  
+  // Metadata
+  metadata      Json?     // Additional state data
+  
+  // Timestamps
+  createdAt     DateTime  @default(now())
+  
+  // Indexes
+  @@index([userId, createdAt])
+}
+
+model ModeSession {
+  id          String      @id @default(cuid())
+  userId      String
+  user        User        @relation(fields: [userId], references: [id])
+  
+  // Session data
+  mode        UserMode
+  startTime   DateTime
+  endTime     DateTime?
+  
+  // Metrics
+  energyStart Int?        // 0-100 scale
+  energyEnd   Int?        // 0-100 scale
+  
+  // Timestamps
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  
+  // Indexes
+  @@index([userId, startTime])
+}
+
+// Enums
+enum UserMode {
+  BUILD
+  FLOW
+  RESTORE
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  DONE
+  BLOCKED
+  PENDING
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+// Note: We're using string fields with enum validation in TypeScript code
+// instead of database enums to avoid migration issues and improve flexibility
+
+model Message {
+  id            String    @id @default(cuid())
+  role          String    // "user" or "assistant"
+  content       String
+  createdAt     DateTime  @default(now())
+  userId        String?   // Made optional as seed data had null userId for messages
+  user          User?     @relation(fields: [userId], references: [id])
+  taskId        String?   // Optional: if message is related to a task
+  task          Task?     @relation(fields: [taskId], references: [id], name: "TaskMessages")
+}

@@ -1,11 +1,142 @@
-import type { Express, Request, Response, RequestHandler } from "express";
-import { createServer, type Server } from "http";
-import { storage } from "./storage"; // PrismaStorage instance
-import { Prisma, PrismaClient } from "@prisma/client"; // Import Prisma for types
-
-// Initialize Prisma client
-const prisma = new PrismaClient();
+import { PrismaClient, type Prisma, TaskStatus, Priority, UserMode, type Task } from '@prisma/client';
 import { z } from 'zod';
+import { type CreateReflectionInput, type CreateTaskInput, storage } from './storage';
+import express, { type Request, type Response, type NextFunction, type Application, type RequestHandler } from 'express';
+import { createServer, type Server } from 'http';
+import { v4 as uuidv4 } from 'uuid';
+import cors from 'cors';
+
+type ExpressType = ReturnType<typeof express>;
+
+// Add prisma to the NodeJS global type
+declare global {
+  var prisma: PrismaClient;
+}
+
+// Initialize Prisma Client
+const prisma = new PrismaClient();
+
+// Prevent multiple instances of Prisma Client in development
+if (process.env.NODE_ENV === 'development') {
+  if (!global.prisma) {
+    global.prisma = prisma;
+  }
+}
+
+// Re-export enums from Prisma client for consistency
+export type { TaskStatus, Priority, UserMode };
+
+// Initialize Express app
+const app: Application = express();
+
+// Apply middleware
+app.use(cors());
+app.use(express.json());
+
+// Task status and priority comparison helpers
+function isTaskStatus(value: string): value is TaskStatus {
+  return Object.values(TaskStatus).includes(value as any);
+}
+
+function isPriority(value: string): value is Priority {
+  return Object.values(Priority).includes(value as any);
+}
+
+function isUserMode(value: string): value is UserMode {
+  return Object.values(UserMode).includes(value as any);
+}
+
+// Convert string to TaskStatus with fallback
+function toTaskStatus(value: string): TaskStatus {
+  const upperValue = value.toUpperCase();
+  return isTaskStatus(upperValue) ? upperValue as TaskStatus : 'TODO';
+}
+
+// Convert string to Priority with fallback
+function toPriority(value: string): Priority {
+  const upperValue = value.toUpperCase();
+  return isPriority(upperValue) ? upperValue as Priority : 'MEDIUM';
+}
+
+// Convert string to UserMode with fallback
+function toUserMode(value: string): UserMode {
+  const upperValue = value.toUpperCase();
+  return isUserMode(upperValue) ? upperValue as UserMode : 'BUILD';
+}
+
+// Helper types for route handlers
+type AsyncRequestHandler = (req: Request, res: Response, next: NextFunction) => Promise<void>;
+
+// Define schemas for request validation
+const taskCreateSchema = z.object({
+  title: z.string().min(1, { message: "Title cannot be empty" }),
+  description: z.string().optional(),
+  status: z.nativeEnum(TaskStatus).default(TaskStatus.TODO),
+  priority: z.nativeEnum(Priority).default(Priority.MEDIUM),
+  mode: z.nativeEnum(UserMode).default(UserMode.BUILD),
+  tags: z.array(z.string()).default([]),
+  estimatedDuration: z.number().int().nonnegative().optional(),
+  dueAt: z.string().datetime().optional().nullable(),
+  timeSpentMinutes: z.number().int().min(0).default(0),
+  completedAt: z.string().datetime().optional().nullable(),
+  userId: z.string().uuid()
+});
+
+// Helper function to create a task
+async function createTaskHandler(req: Request, res: Response) {
+  try {
+    const parsedData = taskCreateSchema.parse(req.body);
+    // Ensure userId is part of parsedData as per schema, or fetch if not provided and schema allows
+    // const userId = parsedData.userId || await getDefaultUserId(); // Assuming schema includes optional userId
+
+    const task = await prisma.task.create({
+      data: {
+        ...parsedData,
+        dueAt: parsedData.dueAt ? new Date(parsedData.dueAt) : null,
+        completedAt: parsedData.completedAt ? new Date(parsedData.completedAt) : null,
+        // userId is now part of taskCreateSchema and should be validated by Zod
+      },
+    });
+    res.status(201).json(task);
+  } catch (error) {
+    console.error('Error creating task:', error);
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: 'Validation failed', details: error.errors });
+    }
+    res.status(400).json({ 
+      error: 'Failed to create task',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+}
+
+const taskUpdateSchema = taskCreateSchema.partial();
+
+const reflectionCreateSchema = z.object({
+  userId: z.string().uuid(),
+  mode: z.string().transform((val) => {
+    switch (val?.toUpperCase()) {
+      case 'FLOW': return UserMode.FLOW;
+      case 'RESTORE': return UserMode.RESTORE;
+      default: return UserMode.BUILD;
+    }
+  }),
+  mood: z.string().min(1, { message: "Mood is required" }),
+  energy: z.union([z.string(), z.number()])
+    .transform(val => typeof val === 'string' ? parseInt(val, 10) : val)
+    .refine(val => !isNaN(val) && val >= 0 && val <= 100, {
+      message: "Energy must be between 0 and 100"
+    }),
+  win: z.string().optional(),
+  challenge: z.string().optional(),
+  journal: z.string().optional(),
+  emotionLabel: z.string().optional(),
+  cognitiveLoad: z.number().min(1).max(10).optional(),
+  control: z.number().min(1).max(10).optional(),
+  clarityGained: z.boolean().optional(),
+  groundingStrategies: z.array(z.string()).optional().default([])
+});
+
 import { DEFAULT_GROUNDING_STRATEGIES, EMOTION_LABELS } from "./constants";
 import { handleContextualMessageRequest, ContextualMessageRequestSchema } from './contextual'; // Import contextual message utilities
 import {
@@ -17,724 +148,370 @@ import {
 } from "./openai";
 import * as Personality from './personality';
 
-// Placeholder for default user logic
-const DEFAULT_USER_EMAIL = 'user@example.com';
-let defaultUserId: string | null = null;
-
+// Helper function to get or create a default user
 async function getDefaultUserId(): Promise<string> {
-  if (defaultUserId) {
-    return defaultUserId;
+  try {
+    const defaultUser = await prisma.user.findFirst();
+    if (defaultUser) {
+      return defaultUser.id;
+    }
+    
+    // Create a default user if none exists
+    const newUser = await prisma.user.create({
+      data: {
+        email: 'default@example.com',
+        // Removed 'name' field as it might not exist on the User model
+      }
+    });
+    return newUser.id;
+  } catch (error) {
+    console.error('Error in getDefaultUserId:', error);
+    // Fallback to a hardcoded ID if all else fails
+    return 'default-user-id';
   }
-  let user = await storage.getUserByEmail(DEFAULT_USER_EMAIL);
-  if (!user) {
-    user = await storage.createUser({ email: DEFAULT_USER_EMAIL });
-  }
-  defaultUserId = user.id;
-  return defaultUserId;
 }
 
-export async function registerRoutes(app: Express): Promise<Server> {
+export async function registerRoutes(app: ExpressType): Promise<Server> {
+
+  // Define query schema for getting tasks
+  const getTasksQuerySchema = z.object({
+    status: z.enum(['TODO', 'IN_PROGRESS', 'DONE', 'BLOCKED']).optional(),
+    priority: z.enum(['LOW', 'MEDIUM', 'HIGH']).optional(),
+    mode: z.string().transform(toUserMode).default(UserMode.BUILD),
+    limit: z.number().int().positive().max(100).default(10).optional(),
+    offset: z.number().int().min(0).default(0).optional()
+  });
 
   // Get all tasks for the default user
-  app.get("/api/tasks", async (req: Request, res: Response) => {
+  app.get("/api/tasks", (async (req: Request, res: Response) => {
     try {
-      const validationResult = getTasksQuerySchema.safeParse(req.query);
-      if (!validationResult.success) {
-        return res.status(400).json({
-          message: "Invalid query parameters for fetching tasks",
-          errors: validationResult.error.flatten().fieldErrors,
-        });
-      }
-
-      const userId = await getDefaultUserId();
-      const { status, priority, mode, page, limit } = validationResult.data;
+      const query = getTasksQuerySchema.parse(req.query);
       
-      // storage.getTasks can now handle these options
-      const tasks = await storage.getTasks(userId, {
-        status,
-        priority,
-        mode,
-        page,
-        limit
+      const tasks = await prisma.task.findMany({
+        where: {
+          status: query.status,
+          priority: query.priority,
+          mode: query.mode,
+          userId: await getDefaultUserId()
+        },
+        take: query.limit,
+        skip: query.offset,
+        orderBy: { createdAt: 'desc' }
       });
+
       res.json(tasks);
     } catch (error) {
-      console.error("Failed to fetch tasks:", error);
-      res.status(500).json({ error: "Failed to fetch tasks" });
+      console.error('Error fetching tasks:', error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ errors: error.errors });
+      }
+      res.status(500).json({ error: 'Failed to fetch tasks' });
     }
-  });
+  }) as RequestHandler);
 
   // Get a specific task
 
-  const getTasksQuerySchema = z.object({
-    status: z.enum(['todo', 'inprogress', 'done', 'blocked', 'pending']).optional(),
-    priority: z.enum(['low', 'medium', 'high']).optional(),
-    mode: z.enum(['build', 'flow', 'restore']).optional(),
-    page: z.string().optional().default('1').transform(val => parseInt(val, 10)).refine(val => val > 0, { message: "Page must be a positive number" }),
-    limit: z.string().optional().default('10').transform(val => parseInt(val, 10)).refine(val => val > 0 && val <= 100, { message: "Limit must be between 1 and 100" })
-  });
-
-  // Zod schema for creating a new task
-  const createTaskSchema = z.object({
-    title: z.string().min(1, { message: "Title cannot be empty" }),
-    content: z.string().optional(),
-    status: z.enum(['todo', 'inprogress', 'done', 'blocked', 'pending']).optional().transform(val => val ?? 'todo'),
-    priority: z.enum(['low', 'medium', 'high']).optional().transform(val => val ?? 'medium'),
-    estimatedTime: z.number().int().nonnegative({ message: "Estimated time must be a non-negative integer" }).optional(),
-    mode: z.enum(['build', 'flow', 'restore']).optional().transform(val => val ?? 'build')
-  });
-
-  // Zod schema for updating an existing task (all fields optional)
-  const getTaskByIdSchema = z.object({
-    id: z.string().min(1, { message: "Task ID cannot be empty" })
-  });
-
-  const updateTaskSchema = z.object({
-    title: z.string().min(1, { message: "Title cannot be empty" }).optional(),
-    content: z.string().optional(),
-    status: z.enum(['todo', 'inprogress', 'done', 'blocked', 'pending']).optional(),
-    priority: z.enum(['low', 'medium', 'high']).optional(),
-    estimatedTime: z.number().int().nonnegative({ message: "Estimated time must be a non-negative integer" }).nullable().optional(), // Allow null to clear time
-    mode: z.enum(['build', 'flow', 'restore']).optional()
-  });
-
-  // Zod schema for contextual message request
-  const contextualMessageSchema = z.object({
-    trigger: z.enum([
-      'mode_change',
-      'reflection_logged',
-      'energy_low',
-      'no_task',
-      'chat_opened'
-      // Add 'task_completed' later if distinct logic is needed
-    ]),
-    context: z.object({
-      currentMode: z.enum(['build', 'flow', 'restore']).optional(),
-      mood: z.string().optional(), // Assuming mood is a string from frontend, e.g., 'positive', 'neutral', 'negative_stressed'
-      energyLevel: z.number().min(0).max(100).optional(), // e.g., 0-100 slider
-      timeOfDay: z.enum(['morning', 'afternoon', 'evening', 'night']).optional()
-    }).optional()
-  });
-
-  app.get("/api/tasks/:id", async (req: Request, res: Response) => {
-    try {
-      const validationResult = getTaskByIdSchema.safeParse(req.params);
-      if (!validationResult.success) {
-        return res.status(400).json({
-          message: "Invalid task ID parameter",
-          errors: validationResult.error.flatten().fieldErrors,
-        });
-      }
-      const { id } = validationResult.data;
-      const task = await storage.getTask(id);
-      
-      if (!task) {
-        return res.status(404).json({ error: "Task not found" });
-      }
-      
-      res.json(task);
-    } catch (error) {
-      console.error("Failed to fetch task:", error);
-      res.status(500).json({ error: "Failed to fetch task" });
+  // Helper function to map string status to TaskStatus enum
+  const mapToTaskStatus = (status: string): TaskStatus => {
+    switch (status?.toUpperCase()) {
+      case 'TODO': return TaskStatus.TODO;
+      case 'IN_PROGRESS': return TaskStatus.IN_PROGRESS;
+      case 'BLOCKED': return TaskStatus.BLOCKED;
+      case 'DONE': return TaskStatus.DONE;
+      case 'ARCHIVED': return TaskStatus.ARCHIVED;
+      case 'PENDING': return TaskStatus.PENDING;
+      default: return TaskStatus.TODO;
     }
-  });
+  };
+
+  // Helper function to map string priority to Priority enum
+  const mapToPriority = (priority: string): Priority => {
+    switch (priority?.toUpperCase()) {
+      case 'LOW': return Priority.LOW;
+      case 'MEDIUM': return Priority.MEDIUM;
+      case 'HIGH': return Priority.HIGH;
+      case 'URGENT': return Priority.URGENT;
+      default: return Priority.MEDIUM;
+    }
+  };
+
+  // Helper function to map string mode to UserMode enum
+  const mapToUserMode = (mode: string): UserMode => {
+    switch (mode?.toUpperCase()) {
+      case 'BUILD': return UserMode.BUILD;
+      case 'FLOW': return UserMode.FLOW;
+      case 'RESTORE': return UserMode.RESTORE;
+      default: return UserMode.BUILD;
+    }
+  };
 
   // Create a new task
-  app.post("/api/tasks", async (req: Request, res: Response) => {
+  app.post('/api/tasks', (async (req: Request, res: Response) => {
     try {
-      const validationResult = createTaskSchema.safeParse(req.body);
-      if (!validationResult.success) {
-        return res.status(400).json({
-          error: "Invalid input for task creation",
-          details: validationResult.error.flatten().fieldErrors,
-        });
+      const taskData = req.body;
+      const userId = taskData.userId as string;
+      
+      if (!userId) {
+        return res.status(400).json({ error: 'User ID is required' });
       }
-      // Destructure only what's needed or truly optional from Zod, apply defaults manually for Prisma
-      const { title, content, estimatedTime } = validationResult.data;
-      const userId = await getDefaultUserId();
 
-      const taskData: Prisma.TaskCreateInput = {
-        title: title, // title is guaranteed by Zod to be a string
-        content: content, // content is string | undefined by Zod
-        status: validationResult.data.status ?? 'todo', // Explicit fallback if Zod transform didn't provide string
-        priority: validationResult.data.priority ?? 'medium', // Explicit fallback
-        estimatedTime: estimatedTime, // Zod ensures this is a number or undefined
-        mode: validationResult.data.mode || 'build', // Explicit fallback, ensures 'build' | 'flow' | 'restore'
-        user: { connect: { id: userId } }
+      // Validate required fields
+      if (!taskData.title) {
+        return res.status(400).json({ error: 'Title is required' });
+      }
+      
+      // Map string values to enums with proper fallbacks
+      const status = taskData.status 
+        ? (typeof taskData.status === 'string' 
+          ? mapToTaskStatus(taskData.status) 
+          : taskData.status as TaskStatus)
+        : TaskStatus.TODO;
+      
+      const priority = taskData.priority
+        ? (typeof taskData.priority === 'string'
+          ? mapToPriority(taskData.priority)
+          : taskData.priority as Priority)
+        : Priority.MEDIUM;
+      
+      const mode = taskData.mode
+        ? (typeof taskData.mode === 'string'
+          ? mapToUserMode(taskData.mode)
+          : taskData.mode as UserMode)
+        : UserMode.BUILD;
+      
+      // Handle due date - use either dueDate or dueAt, with dueDate taking precedence
+      const dueDate = taskData.dueDate || taskData.dueAt;
+      
+      // Create task input with proper typing and null checks
+      const taskInput: CreateTaskInput = {
+        title: taskData.title,
+        description: taskData.description || null,
+        status,
+        priority,
+        mode,
+        tags: Array.isArray(taskData.tags) ? taskData.tags : [],
+        estimatedDuration: taskData.estimatedDuration ? Number(taskData.estimatedDuration) : null,
+        dueDate: dueDate ? new Date(dueDate) : null,
+        userId
       };
-
-      // Generate reframing if title exists and content (description) doesn't
-      if (taskData.title && !taskData.content) {
-        try {
-          // Use the 'mode' from the validated task data for reframing context
-          // Provide a fallback to 'build' if mode is undefined, to satisfy generateTaskReframing's non-optional mode param
-          const taskModeForReframing: 'build' | 'flow' | 'restore' = validationResult.data.mode || 'build';
-          const reframingResponse = await generateTaskReframing(taskData.title, undefined, taskModeForReframing);
-          taskData.content = reframingResponse.description; // Use the description from AI
-        } catch (aiError) {
-          console.error("Error generating task reframing:", aiError);
-          // Continue with task creation even if AI fails, content will remain empty or as initially provided
-        }
+      
+      // Create the task
+      const task = await storage.createTask(taskInput);
+      
+      // Prepare any additional updates needed
+      const updateData: Record<string, any> = {};
+      let needsUpdate = false;
+      
+      if (taskData.timeSpentMinutes !== undefined) {
+        updateData.timeSpentMinutes = Number(taskData.timeSpentMinutes) || 0;
+        needsUpdate = true;
       }
       
-      const task = await storage.createTask(taskData);
-      res.status(201).json(task);
-    } catch (error) {
-      console.error("Failed to create task:", error);
-      if (error instanceof Error) {
-        res.status(400).json({ error: error.message });
-      } else {
-        res.status(400).json({ error: "An unknown error occurred while creating task" });
+      if (taskData.completedAt !== undefined) {
+        updateData.completedAt = taskData.completedAt 
+          ? new Date(taskData.completedAt as string) 
+          : null;
+        needsUpdate = true;
       }
-    }
-  });
-
-  // Update a task
-  app.patch("/api/tasks/:id", async (req: Request, res: Response) => {
-    try {
-      const id = req.params.id;
-
-      const validationResult = updateTaskSchema.safeParse(req.body);
-      if (!validationResult.success) {
-        return res.status(400).json({
-          error: "Invalid input for task update",
-          details: validationResult.error.flatten().fieldErrors,
-        });
-      }
-
-      const { title, content, status, priority, estimatedTime, mode } = validationResult.data;
-      const updateData: Prisma.TaskUpdateInput = {};
-
-      // Only include fields that were actually provided in the request body
-      if (validationResult.data.hasOwnProperty('title')) updateData.title = title;
-      if (validationResult.data.hasOwnProperty('content')) updateData.content = content;
-      if (validationResult.data.hasOwnProperty('status')) updateData.status = status;
-      if (validationResult.data.hasOwnProperty('priority')) updateData.priority = priority;
-      if (validationResult.data.hasOwnProperty('mode')) updateData.mode = mode;
       
-      if (validationResult.data.hasOwnProperty('estimatedTime')) {
-        updateData.estimatedTime = estimatedTime; // Zod ensures it's number or null
+      // If we have fields to update, do it in a separate call
+      if (needsUpdate) {
+        await storage.updateTask(task.id, updateData);
+        // Get the updated task
+        const updatedTask = await storage.getTaskById(task.id, await getDefaultUserId());
+        return res.json(updatedTask);
       }
-
-      if (Object.keys(updateData).length === 0) {
-        return res.status(400).json({ error: "No valid fields provided for update." });
-      }
-
-      const task = await storage.updateTask(id, updateData);
-      if (!task) {
-        return res.status(404).json({ error: "Task not found or failed to update" });
-      }
+      
       res.json(task);
     } catch (error) {
-      console.error("Failed to update task:", error);
-      if (error instanceof Error) {
-        res.status(400).json({ error: error.message });
-      }
-      // General error for other update failures
-      res.status(400).json({ error: `Failed to update task: ${error instanceof Error ? error.message : 'Unknown error'}` });
-    }
-  });
-
-  // Delete a task
-  app.delete("/api/tasks/:id", async (req: Request, res: Response) => {
-    try {
-      const validationResult = getTaskByIdSchema.safeParse(req.params);
-      if (!validationResult.success) {
-        return res.status(400).json({
-          message: "Invalid task ID parameter for deletion",
-          errors: validationResult.error.flatten().fieldErrors,
-        });
-      }
-      const { id } = validationResult.data;
-      const deletedTask = await storage.deleteTask(id);
-      
-      if (!deletedTask) {
-        return res.status(404).json({ error: "Task not found" });
-      }
-      res.status(200).json({ message: "Task deleted successfully", task: deletedTask });
-    } catch (error) {
-      console.error("Failed to delete task:", error);
-      res.status(500).json({ error: "Failed to delete task" });
-    }
-  });
-
-  // Get all reflections for the default user
-  app.get("/api/reflections/legacy", async (req: Request, res: Response) => {
-    try {
-      const userId = await getDefaultUserId();
-      const result = await storage.getReflections({ userId, limit: 10 });
-      res.json(result);
-    } catch (error) {
-      console.error("Failed to fetch reflections:", error);
-      res.status(500).json({ error: "Failed to fetch reflections" });
-    }
-  });
-
-  // Get a specific reflection
-  app.get("/api/reflections/:id", async (req: Request, res: Response) => {
-    try {
-      const id = req.params.id; // Prisma uses string IDs
-      const reflection = await storage.getReflection(id);
-      
-      if (!reflection) {
-        return res.status(404).json({ error: "Reflection not found" });
-      }
-      
-      res.json(reflection);
-    } catch (error) {
-      console.error("Failed to fetch reflection:", error);
-      res.status(500).json({ error: "Failed to fetch reflection" });
-    }
-  });
-
-  // Zod schema for reflection input
-  const reflectionSchema = z.object({
-    mood: z.string().min(1, { message: "Mood cannot be empty" }),
-    energy: z.number().int().min(0, { message: "Energy must be at least 0" }).max(100, { message: "Energy must be at most 100" }),
-    comment: z.string().optional(),
-  });
-
-  // Create a new reflection
-  app.post("/api/reflections", async (req: Request, res: Response) => {
-    try {
-      const validationResult = reflectionSchema.safeParse(req.body);
-      if (!validationResult.success) {
-        return res.status(400).json({ 
-          error: "Invalid input", 
-          details: validationResult.error.flatten().fieldErrors 
-        });
-      }
-
-      const { mood, energy, comment } = validationResult.data;
-      const userId = await getDefaultUserId();
-
-      const reflectionData: Prisma.ReflectionCreateInput = {
-        mood,
-        energy, // 'energy' is already a number from Zod validation
-        comment: comment || undefined,
-        user: { connect: { id: userId } },
-      };
-      const reflection = await storage.createReflection(reflectionData);
-      res.status(201).json(reflection);
-    } catch (error) {
-      console.error("Failed to create reflection:", error);
-      if (error instanceof Error) {
-        res.status(400).json({ error: error.message });
-      } else {
-        res.status(400).json({ error: "An unknown error occurred while creating reflection" });
-      }
-    }
-  });
-
-  // Get all messages for the default user
-  app.get("/api/messages", async (req: Request, res: Response) => {
-    try {
-      const userId = await getDefaultUserId();
-      // const messages = await storage.getMessages(userId); // Old call if it existed
-      const messages = await storage.getMessagesForUser(userId); // New method
-      res.json(messages);
-    } catch (error) {
-      console.error("Failed to fetch messages:", error);
-      res.status(500).json({ error: "Failed to fetch messages" });
-    }
-  });
-
-  // Create a new message and get AI response
-  app.post("/api/messages", async (req: Request, res: Response) => {
-    try {
-      const userId = await getDefaultUserId();
-      const { content, taskId } = req.body; // Assuming role is 'user' from client
-
-      if (!content) {
-        return res.status(400).json({ error: "Message content cannot be empty." });
-      }
-
-      const userMessageData: Prisma.MessageCreateInput = {
-        role: "user",
-        content,
-        user: { connect: { id: userId } },
-        ...(taskId && { task: { connect: { id: taskId } } }),
-      };
-      const userMessage = await storage.createMessage(userMessageData);
-      
-      // Get recent messages for context (e.g., last 10 messages for this user)
-      const allMessagesFromDb = await storage.getMessagesForUser(userId);
-      const recentMessagesFromDb = allMessagesFromDb.slice(-10); // Get last 10 messages for context
-
-      // Prepare tasks for AI context
-      let currentTasksForAI: any[] = [];
-      const clientTasks = req.body.tasks as any[]; // Assuming client might send tasks
-
-      if (clientTasks && Array.isArray(clientTasks) && clientTasks.length > 0) {
-        currentTasksForAI = clientTasks.map(t => ({ 
-          id: t.id,
-          title: t.title,
-          content: t.content,
-          status: t.status,
-          priority: t.priority,
-          // Add other relevant fields if needed by AI, e.g., estimatedTime, mode
-        }));
-      } else {
-        const allUserTasks = await storage.getTasksForUser(userId);
-        currentTasksForAI = allUserTasks
-          .filter(task => task.status === 'todo' || task.status === 'inprogress')
-          .map(task => ({ 
-            id: task.id,
-            title: task.title,
-            content: task.content,
-            status: task.status,
-            priority: task.priority,
-            estimatedTime: task.estimatedTime,
-            mode: task.mode
-          }));
-      }
-
-      // Prepare context for AI
-      const userContext = {
-        mode: (req.body.mode || 'flow') as 'build' | 'flow' | 'restore', // Get from req.body or default
-        mood: (req.body.mood || 'calm') as 'stressed' | 'motivated' | 'calm',
-        energy: parseInt(String(req.body.energy)) || 70, // Default to 70 if not provided or invalid
-        recentMessages: recentMessagesFromDb.map(m => ({ role: m.role, content: m.content })).reverse(), // Ensure chronological order for AI
-        currentTasks: currentTasksForAI
-      };
-
-      // Generate AI response using the structured AIChatResponse type
-      const aiChatResponse = await generateChatResponse(userMessage.content, userContext);
-
-      let assistantMessageContent = "Sorry, I couldn't generate a response.";
-      const createdSuggestedTasks: any[] = [];
-
-      if (aiChatResponse && aiChatResponse.chat_response) {
-        assistantMessageContent = aiChatResponse.chat_response;
-
-        if (aiChatResponse.suggested_tasks && Array.isArray(aiChatResponse.suggested_tasks)) {
-          for (const suggestedTask of aiChatResponse.suggested_tasks) {
-            if (suggestedTask.type === 'new_task' && suggestedTask.title) {
-              let numericEstimatedTime: number | undefined = undefined;
-              if (suggestedTask.estimated_time) {
-                const timeParts = String(suggestedTask.estimated_time).match(/(\d+)\s*(min|hour)s?/i);
-                if (timeParts) {
-                  numericEstimatedTime = parseInt(timeParts[1]);
-                  if (timeParts[2].toLowerCase().startsWith('hour')) {
-                    numericEstimatedTime *= 60;
-                  }
-                }
-              }
-              const taskData: Prisma.TaskCreateInput = {
-                title: suggestedTask.title,
-                content: suggestedTask.description || undefined,
-                status: 'todo',
-                priority: suggestedTask.priority || 'medium',
-                estimatedTime: numericEstimatedTime,
-                mode: suggestedTask.mode || userContext.mode,
-                user: { connect: { id: userId } },
-              };
-              // Add reframing if title exists and content is empty
-              if (taskData.title && !taskData.content) {
-                try {
-                  const reframing = await generateTaskReframing(taskData.title as string, undefined, userContext.mode, userContext.mood);
-                  taskData.content = reframing.description || reframing.title;
-                } catch (aiError) {
-                  console.error("Error generating task reframing for suggested task:", aiError);
-                }
-              }
-              createdSuggestedTasks.push(await storage.createTask(taskData));
-            }
-          }
-        }
-      }
-
-      // Save AI's textual message to the database
-      const assistantMessageRecord = await storage.createMessage({
-        role: "assistant",
-        content: assistantMessageContent,
-        user: { connect: { id: userId } }, 
-        ...(taskId && { task: { connect: { id: taskId } } }),
-      });
-      
-      // Send a single, consolidated response
-      res.status(201).json({
-        userMessage: userMessage, 
-        assistantMessage: assistantMessageRecord,
-        suggestedTasks: createdSuggestedTasks
-      });
-    } catch (error) {
-      if (error instanceof Error) {
-        res.status(400).json({ error: error.message });
-      } else {
-        res.status(400).json({ error: "An unknown error occurred" });
-      }
-    }
-  });
-
-  // Generate subtasks for a task
-  app.post("/api/tasks/subtasks", async (req: Request, res: Response) => {
-    try {
-      const { title } = req.body;
-      
-      if (!title || typeof title !== 'string') {
-        return res.status(400).json({ error: "Task title is required" });
-      }
-      
-      let subtasks = ["Research topic", "Create outline", "Draft content", "Review and finalize"]; // Default subtasks
-      
-      try {
-        // Generate subtasks using OpenAI
-        subtasks = await generateTaskBreakdown(title);
-      } catch (aiError) {
-        console.error("Error generating subtasks:", aiError);
-        // Continue with default subtasks if AI fails
-      }
-      
-      res.status(200).json({ subtasks });
-    } catch (error) {
-      console.error("Error in /api/tasks/subtasks:", error);
-      if (error instanceof Error) {
-        res.status(500).json({ error: `Failed to process subtasks request: ${error.message}` });
-      } else {
-        res.status(500).json({ error: "An unknown error occurred processing subtasks request" });
-      }
-    }
-  });
-
-
-  app.post("/api/contextual-message", async (req: Request, res: Response) => {
-    try {
-      // Validate the request against our schema
-      const validationResult = ContextualMessageRequestSchema.safeParse(req.body);
-      
-      if (!validationResult.success) {
-        return res.status(400).json({
-          error: 'Invalid request data',
-          details: validationResult.error.format()
-        });
-      }
-      
-      // Handle the contextual message request
-      const response = await handleContextualMessageRequest(validationResult.data);
-      
-      // Return the response
-      res.json(response);
-      
-    } catch (error) {
-      console.error('Error generating contextual message:', error);
+      console.error('Error creating task:', error);
       res.status(500).json({ 
-        version: 'v1',
-        error: 'Failed to generate message',
+        error: 'Failed to create task',
         details: error instanceof Error ? error.message : 'Unknown error'
       });
     }
-  });
+  }) as RequestHandler);
 
-  // Generate a motivational quote
-  app.post("/api/quotes", async (req: Request, res: Response) => {
+  // Task endpoints
+  
+  // Create a new task
+  app.post('/api/tasks', (async (req: Request, res: Response) => {
     try {
-      const { mode, mood } = req.body;
-      let quote = "Progress over perfection."; // Default quote
+      const taskData = req.body;
+      const userId = taskData.userId || await getDefaultUserId();
       
-      try {
-        // Generate quote using OpenAI
-        quote = await generateMotivationalQuote({
-          mode: mode || "build",
-          mood: mood || "motivated"
-        });
-      } catch (aiError) {
-        console.error("Error generating motivational quote:", aiError);
-        // Continue with default quote if AI fails
+      if (!userId) {
+        return res.status(400).json({ error: 'User ID is required' });
+      }
+
+      // Validate required fields
+      if (!taskData.title) {
+        return res.status(400).json({ error: 'Title is required' });
       }
       
-      res.status(200).json({ quote });
+      // Map string values to enums with proper fallbacks
+      const status = taskData.status 
+        ? (typeof taskData.status === 'string' 
+          ? toTaskStatus(taskData.status) 
+          : taskData.status as TaskStatus)
+        : TaskStatus.TODO;
+      
+      const priority = taskData.priority
+        ? (typeof taskData.priority === 'string'
+          ? toPriority(taskData.priority)
+          : taskData.priority as Priority)
+        : Priority.MEDIUM;
+      
+      const mode = taskData.mode
+        ? (typeof taskData.mode === 'string'
+          ? toUserMode(taskData.mode)
+          : taskData.mode as UserMode)
+        : UserMode.BUILD;
+      
+      // Handle due date - use either dueDate or dueAt, with dueDate taking precedence
+      const dueDate = taskData.dueDate || taskData.dueAt;
+      
+      // Create task input with proper typing and null checks
+      const taskInput: CreateTaskInput = {
+        title: taskData.title,
+        description: taskData.description || null,
+        status,
+        priority,
+        mode,
+        tags: Array.isArray(taskData.tags) ? taskData.tags : [],
+        estimatedDuration: taskData.estimatedDuration ? Number(taskData.estimatedDuration) : null,
+        dueDate: dueDate ? new Date(dueDate) : null,
+        userId
+      };
+      
+      // Create the task
+      const task = await storage.createTask(taskInput);
+      res.status(201).json(task);
+      
     } catch (error) {
-      console.error("Error in /api/quotes:", error);
-      if (error instanceof Error) {
-        res.status(500).json({ error: `Failed to process quote request: ${error.message}` });
-      } else {
-        res.status(500).json({ error: "An unknown error occurred processing quote request" });
-      }
-    }
-  });
-
-  // Get reflection constants
-  app.get("/api/reflections/constants", (req: Request, res: Response) => {
-    res.json({
-      groundingStrategies: DEFAULT_GROUNDING_STRATEGIES,
-      emotionLabels: EMOTION_LABELS
-    });
-  });
-
-  // Define the reflection schema for validation
-  const reflectionInputSchema = z.object({
-    mood: z.string({
-      required_error: "Mood is required",
-      invalid_type_error: "Mood must be a string"
-    }),
-    energy: z.union([z.string(), z.number()])
-      .transform(val => typeof val === 'string' ? parseInt(val, 10) : val)
-      .refine(val => !isNaN(val) && val >= 0 && val <= 100, {
-        message: "Energy must be between 0 and 100"
-      }),
-    win: z.string().optional(),
-    challenge: z.string().optional(),
-    journal: z.string().optional(),
-    // Advanced fields
-    emotionLabel: z.string().optional(),
-    cognitiveLoad: z.union([z.string(), z.number()])
-      .transform(val => val ? parseInt(String(val), 10) : undefined)
-      .refine(val => val === undefined || (val >= 0 && val <= 100), {
-        message: "Cognitive load must be between 0 and 100"
-      })
-      .optional(),
-    control: z.union([z.string(), z.number()])
-      .transform(val => val ? parseInt(String(val), 10) : undefined)
-      .refine(val => val === undefined || (val >= 1 && val <= 5), {
-        message: "Control rating must be between 1 and 5"
-      })
-      .optional(),
-    clarityGained: z.boolean().optional(),
-    groundingStrategies: z.array(z.string())
-      .transform(arr => arr || [])
-      .default([])
-  });
-
-  // Save a reflection - using type assertion to handle the Express response type
-  const saveReflectionHandler = (async (req: Request, res: Response) => {
-    try {
-      const validationResult = reflectionInputSchema.safeParse(req.body);
-      if (!validationResult.success) {
-        const formattedErrors = validationResult.error.format();
-        // Log validation errors for debugging
-        console.log('Validation errors:', JSON.stringify(formattedErrors, null, 2));
-        
-        return res.status(400).json({
-          message: "Invalid reflection data",
-          errors: formattedErrors,
-        });
-      }
-
-      const userId = await getDefaultUserId();
-      const {
-        mood,
-        energy,
-        win,
-        challenge,
-        journal,
-        emotionLabel,
-        cognitiveLoad,
-        control,
-        clarityGained,
-        groundingStrategies = []
-      } = validationResult.data;
-
-      try {
-        // Create the reflection using the storage method
-        const reflection = await storage.createReflection({
-          userId,
-          mood,
-          energy,
-          ...(win && { win }),
-          ...(challenge && { challenge }),
-          ...(journal && { journal }),
-          // Advanced fields
-          ...(emotionLabel && { emotionLabel }),
-          ...(cognitiveLoad !== undefined && { cognitiveLoad }),
-          ...(control !== undefined && { control }),
-          ...(clarityGained !== undefined && { clarityGained }),
-          ...(groundingStrategies?.length > 0 && {
-            groundingStrategies: groundingStrategies.map(name => ({
-              name: name.trim()
-            })).filter(gs => gs.name.length > 0)
-          })
-        });
-
-        // Get the full reflection with relations for the response
-        const fullReflection = await storage.getReflection(reflection.id);
-        
-        // Trigger contextual message if needed
-        const user = await storage.getUser(userId);
-        if (user) {
-          try {
-            await handleContextualMessageRequest({
-              trigger: 'reflection_logged',
-              version: 'v1',
-              context: {
-                mode: 'restore' as const,
-                mood,
-                energyLevel: energy,
-                timeOfDay: (new Date().getHours() < 12 ? 'morning' : 
-                          new Date().getHours() < 17 ? 'afternoon' : 'evening') as 'morning' | 'afternoon' | 'evening',
-                // Include advanced fields in context if available
-                ...(emotionLabel && { emotionLabel }),
-                ...(cognitiveLoad !== undefined && { cognitiveLoad }),
-                ...(control !== undefined && { controlRating: control }),
-                ...(clarityGained !== undefined && { clarityGained }),
-                ...(groundingStrategies?.length > 0 && { groundingStrategies })
-              }
-            });
-          } catch (error) {
-            console.error('Error handling contextual message:', error);
-            // Don't fail the request if contextual message fails
-          }
-        }
-
-        // Return the full reflection with relations
-        if (!fullReflection) {
-          throw new Error('Failed to retrieve created reflection');
-        }
-        
-        const response = {
-          ...fullReflection,
-          // Ensure groundingStrategies is always an array in the response
-          groundingStrategies: fullReflection.groundingStrategies || []
-        };
-        
-        res.status(201).json(response);
-        return;
-      } catch (error) {
-        console.error('Error in storage.createReflection:', error);
-        throw error; // Let the outer catch handle it
-      }
-    } catch (error) {
-      console.error("Failed to save reflection:", error);
-      
-      // Provide more detailed error information in development
-      const errorMessage = process.env.NODE_ENV === 'development' && error instanceof Error
-        ? error.message
-        : 'Failed to save reflection';
-        
-      res.status(500).json({ 
-        error: errorMessage,
-        ...(process.env.NODE_ENV === 'development' && error instanceof Error && { stack: error.stack })
+      console.error('Error creating task:', error);
+      return res.status(500).json({ 
+        error: 'Failed to create task',
+        details: error instanceof Error ? error.message : 'Unknown error'
       });
     }
-  }) as RequestHandler;
-  
-  app.post("/api/reflections", saveReflectionHandler);
+  }) as RequestHandler);
 
-  // Get reflection history with pagination
-  const getReflectionsHandler: RequestHandler = async (req, res) => {
+  // Update an existing task (support both PUT and PATCH)
+  const handleUpdateTask = async (req: Request, res: Response) => {
     try {
-      const userId = await getDefaultUserId();
+      const { id } = req.params;
+      const updateData: Record<string, any> = { ...req.body };
+      
+      // Handle enum conversions if they exist in the update data
+      if (updateData.status) {
+        updateData.status = typeof updateData.status === 'string' 
+          ? toTaskStatus(updateData.status) 
+          : updateData.status;
+      }
+      
+      if (updateData.priority) {
+        updateData.priority = typeof updateData.priority === 'string'
+          ? toPriority(updateData.priority)
+          : updateData.priority;
+      }
+      
+      if (updateData.mode) {
+        updateData.mode = typeof updateData.mode === 'string'
+          ? toUserMode(updateData.mode)
+          : updateData.mode;
+      }
+      
+      // Handle date fields - support both dueDate and dueAt, with dueDate taking precedence
+      if ('dueDate' in updateData || 'dueAt' in updateData) {
+        const dueDate = updateData.dueDate || updateData.dueAt;
+        updateData.dueDate = !dueDate || dueDate === 'null' ? null : new Date(dueDate);
+        // Remove the old key if it exists
+        if ('dueAt' in updateData) delete updateData.dueAt;
+      }
+      
+      if ('completedAt' in updateData) {
+        updateData.completedAt = !updateData.completedAt || updateData.completedAt === 'null'
+          ? null 
+          : new Date(updateData.completedAt);
+      }
+      
+      // Convert string numbers to actual numbers
+      if ('estimatedDuration' in updateData) {
+        updateData.estimatedDuration = updateData.estimatedDuration 
+          ? Number(updateData.estimatedDuration) 
+          : null;
+      }
+      
+      if ('timeSpentMinutes' in updateData) {
+        updateData.timeSpentMinutes = updateData.timeSpentMinutes 
+          ? Number(updateData.timeSpentMinutes) 
+          : 0;
+      }
+      
+      // Ensure we're not trying to update the userId
+      if ('userId' in updateData) {
+        delete updateData.userId;
+      }
+      
+      // Update the task
+      const updatedTask = await storage.updateTask(id, updateData);
+      res.json(updatedTask);
+    } catch (error) {
+      console.error('Error updating task:', error);
+      return res.status(500).json({ 
+        error: 'Failed to update task',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  };
+
+  // Register both PUT and PATCH for task updates
+  app.put('/api/tasks/:id', handleUpdateTask as RequestHandler);
+  app.patch('/api/tasks/:id', handleUpdateTask as RequestHandler);
+
+  // Get a single task by ID for debugging
+  app.get('/api/debug/tasks/:taskId', (async (req: Request, res: Response) => {
+    try {
+      const { taskId } = req.params;
+      const task = await storage.getTaskById(taskId, await getDefaultUserId());
+      if (!task) {
+        return res.status(404).json({ error: 'Task not found' });
+      }
+      res.json(task);
+    } catch (error) {
+      console.error('Error fetching task for debug:', error);
+      return res.status(500).json({
+        error: 'Failed to fetch task',
+        details: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  }) as RequestHandler);
+
+  // Get reflections for the default user
+  const getReflectionsHandler = async (req: Request, res: Response) => {
+    try {
+      const userId = await getDefaultUserId(); // Assuming reflections are for the default user
       const limit = req.query.limit ? parseInt(String(req.query.limit), 10) : 10;
       const cursor = req.query.cursor as string | undefined;
-      
-      // Use the storage method to get reflections
+
       const result = await storage.getReflections({
         userId,
         limit,
-        ...(cursor ? { cursor } : {})
+        ...(cursor ? { cursor } : {}),
       });
-      
+
       res.json({
         items: result.items,
-        nextCursor: result.nextCursor
+        nextCursor: result.nextCursor,
       });
     } catch (error) {
-      console.error("Failed to fetch reflections:", error);
-      res.status(500).json({ error: "Failed to fetch reflections" });
+      console.error('Failed to fetch reflections:', error);
+      return res.status(500).json({ error: 'Failed to fetch reflections' });
     }
   };
-  
-  app.get("/api/reflections", getReflectionsHandler);
+
+  app.get('/api/reflections', getReflectionsHandler as RequestHandler);
 
   const httpServer = createServer(app);
   return httpServer;

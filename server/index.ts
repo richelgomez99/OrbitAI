@@ -1,12 +1,53 @@
+declare const __IS_DEV__: boolean | undefined; // Will be defined by esbuild for production builds
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
-import { setupVite, serveStatic, log } from "./vite";
+
+import { createTRPCExpressMiddleware } from "./appRouter"; // Import Express-compatible middleware
+import cors from 'cors';
+import fs from "fs";
+import path from "path";
+import { type Server as HttpServer } from "http";
+
+
+// Moved serveStatic function
+function serveStatic(app: express.Express) {
+  // This path needs to be relative to where dist/index.js runs from.
+  // If dist/index.js is in /app/dist/index.js, then 'public' would be /app/public.
+  // We need to confirm client asset location in the Docker image.
+  // fly.toml statics directive might make this redundant for Fly.io deployment.
+  const distPath = path.resolve(process.cwd(), "public");
+
+  if (!fs.existsSync(distPath)) {
+    console.warn(
+      `Static asset directory not found: ${distPath}. If deploying to Fly.io with [statics] configured, this might be okay.`,
+    );
+  } else {
+    app.use(express.static(distPath));
+    // This catch-all should be specific to static assets and usually comes after API routes.
+    // For a Single Page Application (SPA), it serves index.html for any non-API, non-file route.
+    app.use("*", (_req, res) => {
+      res.sendFile(path.resolve(distPath, "index.html"));
+    });
+  }
+}
 
 const app = express();
+
+// Enable CORS for development
+app.use(cors({
+  origin: 'http://localhost:3000', // Update this with your client URL
+  credentials: true,
+}));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-app.use((req, res, next) => {
+// tRPC middleware
+// Directly use the middleware from appRouter
+app.use('/trpc', createTRPCExpressMiddleware());
+
+// Logging middleware
+app.use((req: express.Request, res: express.Response, next: express.NextFunction) => {
   const start = Date.now();
   const path = req.path;
   let capturedJsonResponse: Record<string, any> | undefined = undefined;
@@ -19,7 +60,7 @@ app.use((req, res, next) => {
 
   res.on("finish", () => {
     const duration = Date.now() - start;
-    if (path.startsWith("/api")) {
+    if (path.startsWith("/api") || path.startsWith("/trpc")) {
       let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
       if (capturedJsonResponse) {
         logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
@@ -29,7 +70,7 @@ app.use((req, res, next) => {
         logLine = logLine.slice(0, 79) + "…";
       }
 
-      log(logLine);
+      console.log(logLine);
     }
   });
 
@@ -37,7 +78,7 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  const server = await registerRoutes(app);
+  const server: HttpServer = await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
@@ -47,13 +88,20 @@ app.use((req, res, next) => {
     throw err;
   });
 
-  // importantly only setup vite in development and after
-  // setting up all the other routes so the catch-all route
-  // doesn't interfere with the other routes
-  if (app.get("env") === "development") {
-    await setupVite(app, server);
+  // Setup Vite conditionally using __IS_DEV__ (defined by esbuild for prod) or fallback to NODE_ENV for local dev
+  const isDevelopment = typeof __IS_DEV__ === 'boolean' ? __IS_DEV__ : process.env.NODE_ENV === 'development';
+
+  if (isDevelopment) {
+    console.log("Preparing to dynamically import Vite for development...");
+    try {
+      const { setupVite } = await import('./vite');
+      await setupVite(app, server);
+      console.log("Vite setup executed successfully.");
+    } catch (e) {
+      console.error("Failed to load Vite module for development:", e);
+    }
   } else {
-    serveStatic(app);
+    console.log("Vite import will be skipped (isDevelopment is false - production mode).");
   }
 
   // ALWAYS serve the app on port 5000
@@ -64,6 +112,6 @@ app.use((req, res, next) => {
     port,
     host: "0.0.0.0", // Fly.io requires 0.0.0.0
   }, () => {
-    log(`serving on port ${port}`);
+    console.log(`serving on port ${port}`);
   });
 })();

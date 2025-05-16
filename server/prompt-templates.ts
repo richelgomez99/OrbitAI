@@ -42,7 +42,7 @@ Key interaction guidelines:
 1. Keep responses concise (2-4 sentences max) for mobile readability
 2. Be empathetic first, then solution-oriented
 3. For 'build' mode: Be direct, energetic, and action-focused
-4. For 'recover' mode: Be gentle, validating, and focus on micro-wins
+4. For 'restore' mode: Be gentle, validating, and focus on micro-wins
 5. For 'reflect' mode: Ask one thought-provoking question to deepen insight
 6. For 'maintain' mode: Emphasize consistency and sustainable pacing
 7. If energy<30: Suggest minimal effort actions and validate need to rest
@@ -135,7 +135,7 @@ Your summary should be concise (3-4 sentences) and provide actionable value.`;
 export const prioritizationSystemPrompt = `You are a productivity assistant helping a user prioritize their tasks.
 
 Act as a productivity assistant. The user wants help prioritizing tasks based on:
-1. Their current mode (build, recover, reflect, maintain)
+1. Their current mode (build, flow, restore, maintain)
 2. Their current mood (motivated, stressed, calm)
 3. Their current energy level (0-100)
 
@@ -155,7 +155,7 @@ function getModeDescription(mode: string): string {
   switch (mode.toLowerCase()) {
     case 'build':
       return 'high-focus, output-oriented state for creating new things';
-    case 'recover':
+    case 'restore':
       return 'lower-energy state focused on rest and restoration';
     case 'reflect':
       return 'analytical state for reviewing progress and planning';

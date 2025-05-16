@@ -1,11 +1,7 @@
-import { defineConfig } from "vite";
-import react from "@vitejs/plugin-react";
 import path from "path";
 
-export default defineConfig({
-  plugins: [
-    react(),
-  ],
+export default {
+  // plugins: [], // React plugin will be added dynamically in server/vite.ts if in dev mode
   resolve: {
     alias: {
       "@": path.resolve(path.dirname(new URL(import.meta.url).pathname), "client", "src"),
@@ -25,5 +21,5 @@ export default defineConfig({
         changeOrigin: true,
       }
     }
-  },
-});
+  }
+};

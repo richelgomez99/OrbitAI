@@ -14,9 +14,9 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 
 const MODE_ICONS = {
-  build: <Zap className="w-5 h-5" />,
-  flow: <Waves className="w-5 h-5" />,
-  restore: <Leaf className="w-5 h-5" />,
+  build: <Zap className="w-5 h-5 text-orange-500" />,
+  flow: <Waves className="w-5 h-5 text-blue-500" />,
+  restore: <Leaf className="w-5 h-5 text-green-500" />,
 } as const;
 
 const ModeSwitcher: React.FC = () => {

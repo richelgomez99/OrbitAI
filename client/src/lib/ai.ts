@@ -39,7 +39,7 @@ export async function generateSubtasks(title: string): Promise<string[]> {
 
 /**
  * Generate a motivational quote based on the user's context
- * @param mode The current mode (build, recover, etc.)
+ * @param mode The current mode (build, restore, etc.)
  * @param mood The current mood (motivated, stressed, etc.)
  * @returns A motivational quote
  */

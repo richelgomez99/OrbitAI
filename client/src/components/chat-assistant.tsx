@@ -53,16 +53,10 @@ export function ChatAssistant({ messages, onSendMessage, aiSuggestions }: ChatAs
           { text: "Prioritize tasks for today", icon: <Clock size={14} /> }
         ];
         break;
-      case 'recover':
+      case 'restore':
         modeSpecificSuggestions = [
           { text: "Help me clear mental fog", icon: <Brain size={14} /> },
           { text: "Suggest a 5-min microbreak", icon: <Pause size={14} /> }
-        ];
-        break;
-      case 'reflect':
-        modeSpecificSuggestions = [
-          { text: "What were my wins today?", icon: <MessageSquareMore size={14} /> },
-          { text: "Help me journal about my mood", icon: <Brain size={14} /> }
         ];
         break;
       case 'flow':

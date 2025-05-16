@@ -41,8 +41,8 @@ export function TaskCard({ task, onStatusChange }: TaskCardProps) {
   
   const modeColors: Record<Mode, string> = {
     build: "bg-[#9F7AEA]/10 text-[#9F7AEA] border-[#9F7AEA]/20",    // Purple
-    recover: "bg-[#FC8181]/10 text-[#FC8181] border-[#FC8181]/20",  // Red
-    reflect: "bg-blue-400/10 text-blue-300 border-blue-400/20",    // Light Blue
+    restore: "bg-[#FC8181]/10 text-[#FC8181] border-[#FC8181]/20",  // Red (Restore was Recover)
+    // reflect: "bg-blue-400/10 text-blue-300 border-blue-400/20", // Light Blue (Reflect mode removed, restore uses red)
     flow: "bg-green-500/10 text-green-400 border-green-500/20"     // Green
   };
   

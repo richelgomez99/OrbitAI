@@ -4,7 +4,11 @@ import { Button } from '../ui/button';
 import { RefreshCw } from 'lucide-react';
 import { calmQuotes } from '@/data/restoreData';
 
-export const MomentOfCalm: React.FC = () => {
+interface MomentOfCalmProps {
+  energyLevel?: 'low' | 'medium' | 'high';
+}
+
+export const MomentOfCalm: React.FC<MomentOfCalmProps> = ({ energyLevel = 'medium' }) => {
   const [currentQuote, setCurrentQuote] = useState(calmQuotes[0]);
   const [isRefreshing, setIsRefreshing] = useState(false);
 

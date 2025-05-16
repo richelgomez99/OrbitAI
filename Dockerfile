@@ -40,5 +40,8 @@ COPY --from=builder /app/dist/public ./server/public
 # or fall back to 5001, as configured in server/index.ts.
 # The host 0.0.0.0 is also correctly set in server/index.ts.
 
+# Copy the Prisma schema and migrations from the builder stage
+COPY --from=builder /app/prisma ./prisma
+
 # Command to start the application
 CMD ["node", "dist/index.js"]

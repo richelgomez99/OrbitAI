@@ -1,34 +1,37 @@
-import express, { type Express } from "express";
+declare const __IS_DEV__: boolean;
+
+import type { Express } from "express";
 import fs from "fs";
 import path from "path";
-import { createServer as createViteServer, createLogger } from "vite";
-import { type Server } from "http";
-import viteConfig from "../vite.config";
+import type { Server as HttpServer } from "http";
 import { nanoid } from "nanoid";
 
-const viteLogger = createLogger();
+async function _actualDevSetupVite(app: Express, server: HttpServer) {
+  // Dynamically import Vite and related packages ONLY in development
+  const { createServer: createViteServer, createLogger, defineConfig } = await import("vite");
+  const react = (await import("@vitejs/plugin-react")).default;
+  const viteConfigPlain = (await import("../vite.config.ts")).default; // .js extension, as it's processed by Vite/Node
 
-export function log(message: string, source = "express") {
-  const formattedTime = new Date().toLocaleTimeString("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: true,
+  if (!viteConfigPlain) {
+    throw new Error('Failed to load Vite configuration from ../vite.config.ts');
+  }
+
+  // Define and apply React plugin within the dev setup
+  const viteUserConfig = defineConfig({
+    ...viteConfigPlain,
+    plugins: [react()], // Add react plugin here
   });
 
-  console.log(`${formattedTime} [${source}] ${message}`);
-}
-
-export async function setupVite(app: Express, server: Server) {
+  const viteLogger = createLogger();
   const serverOptions = {
     middlewareMode: true,
     hmr: { server },
-    allowedHosts: true,
+    allowedHosts: true as true,
   };
 
   const vite = await createViteServer({
-    ...viteConfig,
-    configFile: false,
+    ...viteUserConfig,
+    configFile: false, // We've already loaded the config
     customLogger: {
       ...viteLogger,
       error: (msg, options) => {
@@ -43,7 +46,6 @@ export async function setupVite(app: Express, server: Server) {
   app.use(vite.middlewares);
   app.use("*", async (req, res, next) => {
     const url = req.originalUrl;
-
     try {
       const clientTemplate = path.resolve(
         import.meta.dirname,
@@ -51,13 +53,11 @@ export async function setupVite(app: Express, server: Server) {
         "client",
         "index.html",
       );
-
-      // always reload the index.html file from disk incase it changes
       let template = await fs.promises.readFile(clientTemplate, "utf-8");
-      template = template.replace(
-        `src="/src/main.tsx"`,
-        `src="/src/main.tsx?v=${nanoid()}"`,
-      );
+      // template = template.replace(
+      //   `src="/src/main.tsx"`,
+      //   `src="/src/main.tsx?v=${nanoid()}`,
+      // );
       const page = await vite.transformIndexHtml(url, template);
       res.status(200).set({ "Content-Type": "text/html" }).end(page);
     } catch (e) {
@@ -67,19 +67,7 @@ export async function setupVite(app: Express, server: Server) {
   });
 }
 
-export function serveStatic(app: Express) {
-  const distPath = path.resolve(import.meta.dirname, "public");
-
-  if (!fs.existsSync(distPath)) {
-    throw new Error(
-      `Could not find the build directory: ${distPath}, make sure to build the client first`,
-    );
-  }
-
-  app.use(express.static(distPath));
-
-  // fall through to index.html if the file doesn't exist
-  app.use("*", (_req, res) => {
-    res.sendFile(path.resolve(distPath, "index.html"));
-  });
+export async function setupVite(app: Express, server: HttpServer): Promise<void> {
+  console.log("Development mode: Initializing Vite setup...");
+  await _actualDevSetupVite(app, server);
 }

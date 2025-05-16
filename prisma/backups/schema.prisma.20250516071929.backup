@@ -87,7 +87,6 @@ model Task {
   status           TaskStatus     @default(TODO)
   priority         Priority       @default(MEDIUM)
   mode             UserMode       @default(BUILD)
-  tags             String[]       @default([])
   sessions         FocusSession[] @relation("TaskSessions")
   messages         Message[]      @relation("TaskMessages")
   user             User           @relation(fields: [userId], references: [id])
@@ -110,7 +109,6 @@ model FocusSession {
   taskId              String?
   updatedAt           DateTime            @updatedAt
   mode                UserMode
-  interruptions       Int?                @default(0)
   task                Task?               @relation("TaskSessions", fields: [taskId], references: [id])
   user                User                @relation(fields: [userId], references: [id])
   groundingStrategies GroundingStrategy[]

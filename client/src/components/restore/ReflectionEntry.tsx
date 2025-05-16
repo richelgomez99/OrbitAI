@@ -51,38 +51,6 @@ export const ReflectionEntry: React.FC<ReflectionEntryProps> = ({ onSubmit }) =>
     setIsSubmitting(true);
     
     try {
-      // Prepare the reflection data
-      const reflectionData = {
-        mood,
-        energy: 50, // Default energy level, can be made configurable
-        win: wins,
-        challenge: struggles,
-        journal: journalEntry,
-        // Advanced fields - only include if they have values
-        ...(emotionLabel && { emotionLabel }),
-        ...(cognitiveLoad !== undefined && { cognitiveLoad }),
-        ...(controlRating !== undefined && { control: controlRating }),
-        ...(clarityGained !== null && { clarityGained }),
-        groundingStrategies: groundingStrategies || []
-      };
-
-      // Submit to the API
-      const response = await fetch('/api/reflections', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(reflectionData),
-      });
-
-      if (!response.ok) {
-        const error = await response.json().catch(() => ({}));
-        throw new Error(error.message || 'Failed to save reflection');
-      }
-
-      const result = await response.json();
-      
-      // Call the onSubmit callback with the result
       await onSubmit({
         wins,
         struggles,
@@ -92,10 +60,10 @@ export const ReflectionEntry: React.FC<ReflectionEntryProps> = ({ onSubmit }) =>
         cognitiveLoad,
         controlRating,
         groundingStrategies,
-        clarityGained
+        clarityGained,
       });
       
-      // Reset form
+      // Reset form after successful submission
       setWins('');
       setStruggles('');
       setJournalEntry('');

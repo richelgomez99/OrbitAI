@@ -203,7 +203,7 @@ export const MODE_CONFIG: Record<Mode, ModeConfig> = {
     focusRing: 'focus-visible:ring-violet-500',
     taskCardClass: 'border-violet-500/30 bg-gradient-to-br from-violet-900/30 to-fuchsia-900/30',
     headerClass: 'bg-gradient-to-r from-violet-900/80 to-fuchsia-900/80',
-    description: 'Gentle mode for recovery and self-care',
+    description: 'Gentle mode for restoration and self-care',
     tips: [
       'Take regular breaks and stretch',
       'Practice mindfulness between tasks',

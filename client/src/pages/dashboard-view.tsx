@@ -21,7 +21,7 @@ import { useLocation } from "wouter"; // For navigation
 
 export default function DashboardView() {
   const { mode, tasks, setShowAddTaskModal, setShowModeSwitcher } = useOrbit();
-  const [, navigate] = useLocation(); // For navigation to /reflect
+  const [, navigate] = useLocation(); // For navigation to /restore (formerly /reflect for mode)
   const [sortBy, setSortBy] = useState("priority");
   
   const completedTasks = tasks.filter(task => task.status === "done");
