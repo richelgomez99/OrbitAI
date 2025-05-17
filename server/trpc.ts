@@ -1,23 +1,19 @@
 import { initTRPC } from '@trpc/server';
-// If you plan to use context with Prisma or session, you might import PrismaClient/Session here
-// import { PrismaClient } from '@prisma/client';
-// import { type Session } from 'next-auth'; // Example if using NextAuth
+import { PrismaClient, Prisma } from '@prisma/client';
 
 /**
  * Initialization of tRPC backend
  * Should be done only once per backend!
  */
 
-// Context type can be defined here if needed, e.g.:
-// export interface Context {
-//   prisma?: PrismaClient;
-//   session?: Session | null;
-//   user?: { id: string; /* other user properties */ };
-// }
+export interface Context {
+  prisma: PrismaClient;
+  // session?: Session | null; // Assuming no NextAuth session for now
+  user?: Prisma.User | null; // User can be null if not authenticated
+}
 
-// Initialize tRPC without context first, or define and use Context type
-// const t = initTRPC.context<Context>().create();
-const t = initTRPC.create();
+// Initialize tRPC with the defined Context type
+const t = initTRPC.context<Context>().create();
 
 /**
  * Export reusable router and procedure helpers

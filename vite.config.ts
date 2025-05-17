@@ -2,8 +2,9 @@ import path from "path";
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
+
 export default {
-  plugins: [react()],
+  plugins: [react()], // React plugin is typically added by vite build or dynamically for dev server
   resolve: {
     alias: {
       "@": path.resolve(path.dirname(new URL(import.meta.url).pathname), "client", "src"),

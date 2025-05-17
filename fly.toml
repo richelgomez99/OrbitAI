@@ -10,15 +10,33 @@ primary_region = 'iad'
   dockerfile = './Dockerfile'
 
 [deploy]
-  release_command = "npx prisma migrate deploy --schema=./prisma/schema.prisma"
+  release_command = "npx prisma migrate deploy --schema=/app/prisma/schema.prisma"
 
 [http_service]
-  internal_port = 8080
+  internal_port = 5001
   force_https = true
-  auto_stop_machines = 'stop'
+  auto_stop_machines = 'off'
   auto_start_machines = true
-  min_machines_running = 0
+  min_machines_running = 1
   processes = ['app']
+
+  [[http_service.checks]]
+    type = "tcp"
+    port = 5001
+    interval = "15s"
+    timeout = "2s"
+    grace_period = "7s"
+
+  [[http_service.checks]]
+    type = "http"
+    port = 5001
+    method = "GET"
+    path = "/api/health" # Health check endpoint
+    protocol = "http"
+    interval = "15s"
+    timeout = "5s"
+    grace_period = "10s"
+    tls_skip_verify = true
 
 [[vm]]
   memory = '1gb'

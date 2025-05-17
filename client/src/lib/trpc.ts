@@ -5,8 +5,8 @@ export const trpc = createTRPCReact<AppRouter>();
 
 export function getBaseUrl() {
   // 1. Prioritize VITE_API_BASE_URL if explicitly set (for Vercel/production client-side builds)
-  if (import.meta.env.VITE_API_BASE_URL) {
-    return import.meta.env.VITE_API_BASE_URL;
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL;
   }
   // 2. Browser environment (local dev) - use relative path for Vite proxy
   if (typeof window !== 'undefined') return ''; 

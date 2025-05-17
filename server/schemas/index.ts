@@ -1,5 +1,7 @@
 import { z } from 'zod';
-import { UserMode, TaskStatus, Priority } from '@prisma/client';
+import prismaClientPackage from '@prisma/client';
+const { UserMode, TaskStatus, Priority } = prismaClientPackage as any; // Cast to any to bypass TS errors on default import
+import { Prisma } from '@prisma/client'; // Keep for other Prisma types if needed
 
 // Common schemas
 export const userIdSchema = z.string().min(1, 'User ID is required');
@@ -53,10 +55,10 @@ export const userStateSchema = z.object({
 export const taskSchema = z.object({
   title: z.string().min(1, 'Title is required'),
   description: z.string().optional(),
-  status: z.nativeEnum(TaskStatus).default('TODO'),
-  priority: z.nativeEnum(Priority).default('MEDIUM'),
+  status: z.nativeEnum(TaskStatus).default(TaskStatus.TODO),
+  priority: z.nativeEnum(Priority).default(Priority.MEDIUM),
   estimatedMinutes: z.number().int().positive().optional(),
-  mode: z.nativeEnum(UserMode).default('BUILD'),
+  mode: z.nativeEnum(UserMode).default(UserMode.BUILD),
   tags: z.array(z.string()).default([]),
   dueAt: z.date().optional(),
 });

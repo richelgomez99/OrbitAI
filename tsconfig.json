@@ -5,16 +5,16 @@
     "incremental": true,
     "tsBuildInfoFile": "./node_modules/typescript/tsbuildinfo",
     "noEmit": true,
-    "module": "ESNext",
+    "module": "NodeNext",
     "strict": true,
     "lib": ["esnext", "dom", "dom.iterable"],
     "jsx": "preserve",
     "esModuleInterop": true,
-    "skipLibCheck": true,
+    "skipLibCheck": false,
     "allowImportingTsExtensions": true,
-    "moduleResolution": "bundler",
+    "moduleResolution": "NodeNext",
     "baseUrl": ".",
-    "types": ["node", "vite/client"],
+
     "paths": {
       "@/*": ["./client/src/*"],
       "@shared/*": ["./shared/*"]

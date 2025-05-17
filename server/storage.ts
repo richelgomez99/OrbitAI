@@ -1,4 +1,5 @@
-import { PrismaClient, User, Task, Reflection, GroundingStrategy, GroundingSource, UserState, Message, TaskStatus, Priority, UserMode, Prisma, FocusSession } from '@prisma/client';
+import type { PrismaClient, User, Task, Reflection, GroundingStrategy, GroundingSource, UserState, Message, TaskStatus, Priority, UserMode, Prisma, FocusSession } from '@prisma/client';
+import prismaClientDefaultPackage from '@prisma/client';
 import { v4 as uuidv4 } from 'uuid';
 
 export type CreateTaskInput = {
@@ -106,7 +107,7 @@ declare module '@prisma/client' {
   }
 }
 
-const prisma = new PrismaClient();
+const prisma = new prismaClientDefaultPackage.PrismaClient();
 
 export class PrismaStorage {
   // User methods
@@ -416,9 +417,9 @@ export class PrismaStorage {
       title,
       description: finalDescription,
       user: { connect: { id: userId } },
-      status: status ?? TaskStatus.TODO,
-      priority: priority ?? Priority.MEDIUM,
-      mode: mode ?? UserMode.BUILD,
+      status: status ?? prismaClientDefaultPackage.TaskStatus.TODO,
+      priority: priority ?? prismaClientDefaultPackage.Priority.MEDIUM,
+      mode: mode ?? prismaClientDefaultPackage.UserMode.BUILD,
       estimatedMinutes: estimatedMinutes ?? null,
       dueAt: finalDueDate ? new Date(String(finalDueDate)) : null, // Ensure string conversion for Date constructor if input can be string
       completedAt: completedAt ? new Date(String(completedAt)) : null, // Ensure string conversion

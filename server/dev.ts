@@ -1,34 +1,16 @@
-// server/index.ts (PRODUCTION ONLY)
+// server/dev.ts
 import express, { type Request, Response, NextFunction } from "express";
-import type { PrismaClient, Prisma } from "@prisma/client";
 import { registerRoutes } from "./routes.js";
 import { createTRPCExpressMiddleware } from "./appRouter.js";
 import cors from 'cors';
-import fs from "fs";
-import path from "path";
 import { type Server as HttpServer } from "http";
-
-// serveStatic function
-function serveStatic(app: express.Express) {
-  const distPath = path.resolve(process.cwd(), "dist", "public");
-  if (!fs.existsSync(distPath)) {
-    console.warn(
-      `Static asset directory not found: ${distPath}. If deploying to Fly.io with [statics] configured, this might be okay.`,
-    );
-  } else {
-    app.use(express.static(distPath));
-    // SPA fallback: This should be after all API routes and other specific static paths.
-    app.use("*", (_req, res) => { 
-      res.sendFile(path.resolve(distPath, "index.html"));
-    });
-  }
-}
+import { initializeViteDevEnvironment } from "./vite-dev-setup.js"; // Direct import
 
 const app = express();
 
-// CORS configuration (needed for prod)
+// CORS configuration
 const allowedOrigins = [
-  'http://localhost:5001', // Still useful if API is hit directly during local client dev pointing to prod API
+  'http://localhost:5001',
   'https://orbitassistant.com',
   /^https:\/\/.*\.orbitassistant\.com$/,
   /^https:\/\/orbit-web-.*\.vercel\.app$/,
@@ -64,7 +46,7 @@ app.use(express.urlencoded({ extended: false }));
 // tRPC middleware
 app.use('/trpc', createTRPCExpressMiddleware());
 
-// Logging middleware (useful for prod)
+// Logging middleware
 app.use((req: express.Request, res: express.Response, next: express.NextFunction) => {
   const start = Date.now();
   const path = req.path;
@@ -92,27 +74,30 @@ app.use((req: express.Request, res: express.Response, next: express.NextFunction
   next();
 });
 
+
 (async () => {
   const server: HttpServer = await registerRoutes(app);
 
-  // Error handling for production
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
-    console.error("Unhandled error in Express middleware (production):", err); // Log the actual error
-    res.status(status).json({ message }); // Send generic message to client
+    res.status(status).json({ message });
+    console.error("Unhandled error in Express middleware (dev.ts):", err);
   });
 
-  // Serve static assets in production (after API routes and error handlers for API)
-  console.log("Production mode: Serving static assets.");
-  serveStatic(app);
+  console.log("Development mode: Initializing Vite dev environment...");
+  try {
+    await initializeViteDevEnvironment(app, server);
+    console.log("Vite development environment initialized successfully.");
+  } catch (e) {
+    console.error("Failed to initialize Vite dev environment:", e);
+  }
 
-  const port = process.env.PORT || 5001; // Fly.io provides PORT
+  const port = process.env.PORT || 5001;
   server.listen({
     port,
-    host: "0.0.0.0", // Required by Fly.io
+    host: "0.0.0.0",
   }, () => {
-    console.log(`Production server running on port ${port}`);
+    console.log(`Development server running on port ${port}`);
   });
 })();
-

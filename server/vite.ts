@@ -1,73 +1,33 @@
-declare const __IS_DEV__: boolean;
+// This global is defined by esbuild for production builds.
+// It will be undefined during local 'tsx' development.
+declare const __IS_DEV__: boolean | undefined; 
 
 import type { Express } from "express";
-import fs from "fs";
-import path from "path";
 import type { Server as HttpServer } from "http";
-import { nanoid } from "nanoid";
-
-async function _actualDevSetupVite(app: Express, server: HttpServer) {
-  // Dynamically import Vite and related packages ONLY in development
-  const { createServer: createViteServer, createLogger, defineConfig } = await import("vite");
-  const react = (await import("@vitejs/plugin-react")).default;
-  const viteConfigPlain = (await import("../vite.config.ts")).default; // .js extension, as it's processed by Vite/Node
-
-  if (!viteConfigPlain) {
-    throw new Error('Failed to load Vite configuration from ../vite.config.ts');
-  }
-
-  // Define and apply React plugin within the dev setup
-  const viteUserConfig = defineConfig({
-    ...viteConfigPlain,
-    plugins: [react()], // Add react plugin here
-  });
-
-  const viteLogger = createLogger();
-  const serverOptions = {
-    middlewareMode: true,
-    hmr: { server },
-    allowedHosts: true as true,
-  };
-
-  const vite = await createViteServer({
-    ...viteUserConfig,
-    configFile: false, // We've already loaded the config
-    customLogger: {
-      ...viteLogger,
-      error: (msg, options) => {
-        viteLogger.error(msg, options);
-        process.exit(1);
-      },
-    },
-    server: serverOptions,
-    appType: "custom",
-  });
-
-  app.use(vite.middlewares);
-  app.use("*", async (req, res, next) => {
-    const url = req.originalUrl;
-    try {
-      const clientTemplate = path.resolve(
-        import.meta.dirname,
-        "..",
-        "client",
-        "index.html",
-      );
-      let template = await fs.promises.readFile(clientTemplate, "utf-8");
-      // template = template.replace(
-      //   `src="/src/main.tsx"`,
-      //   `src="/src/main.tsx?v=${nanoid()}`,
-      // );
-      const page = await vite.transformIndexHtml(url, template);
-      res.status(200).set({ "Content-Type": "text/html" }).end(page);
-    } catch (e) {
-      vite.ssrFixStacktrace(e as Error);
-      next(e);
-    }
-  });
-}
 
 export async function setupVite(app: Express, server: HttpServer): Promise<void> {
-  console.log("Development mode: Initializing Vite setup...");
-  await _actualDevSetupVite(app, server);
+  // This check determines if we are in a true development environment.
+  // 1. __IS_DEV__ is undefined (e.g., running with `tsx` locally) AND NODE_ENV is 'development'.
+  // OR
+  // 2. __IS_DEV__ is explicitly true (though esbuild sets it to false for prod).
+  const isTrulyDevelopment = 
+    (typeof __IS_DEV__ === 'undefined' && process.env.NODE_ENV === 'development') ||
+    (typeof __IS_DEV__ === 'boolean' && __IS_DEV__ === true);
+
+  if (isTrulyDevelopment) {
+    console.log("[setupVite] Development mode detected: Dynamically importing and initializing vite-dev-setup...");
+    try {
+      // IMPORTANT: Use .js extension for dynamic import if esbuild doesn't rewrite it for Node's ESM resolver.
+      // Assuming esbuild output target is ESM and Node will resolve .js from .ts source.
+      const { initializeViteDevEnvironment } = await import("./vite-dev-setup.js"); 
+      await initializeViteDevEnvironment(app, server);
+      console.log("[setupVite] vite-dev-setup completed.");
+    } catch (e) {
+      console.error("[setupVite] Failed to load or run vite-dev-setup:", e);
+      // Optionally, exit or provide a fallback if Vite is critical for dev
+    }
+  } else {
+    console.log("[setupVite] Production mode or non-dev environment (__IS_DEV__ is false or not explicitly dev): Vite setup will be skipped.");
+    // This function should ideally not even be part of the production bundle if tree-shaking works on the dynamic import.
+  }
 }
