@@ -4,6 +4,8 @@ import { storage } from '../storage';
 import { TRPCError } from '@trpc/server';
 // Prisma Client and Types
 import { PrismaClient } from '@prisma/client';
+// Validation utilities
+import { safeString, safeText, safeTags, safeUuid, safeDate } from '../validation';
 
 // Prisma Enums (Runtime Values - CJS/ESM workaround)
 import prismaEnumWorkaround from '@prisma/client';
@@ -14,27 +16,48 @@ type StorageWithPrisma = typeof storage & {
   prisma: PrismaClient;
 };
 
+/**
+ * Enhanced task creation schema with comprehensive validation.
+ *
+ * Security features:
+ * - HTML sanitization on all text fields
+ * - Length limits to prevent DoS
+ * - Tag count and size limits
+ * - Type-safe enum validation
+ */
 const taskCreateInputSchema = z.object({
-  title: z.string(),
-  description: z.string().optional(),
+  title: safeString(1, 200), // Required, 1-200 chars, HTML-sanitized
+  description: safeText(5000), // Optional, max 5000 chars, HTML-sanitized
   status: z.nativeEnum(TaskStatus).optional(),
   priority: z.nativeEnum(Priority).optional(),
   mode: z.nativeEnum(UserMode).optional(),
-  tags: z.array(z.string()).optional(),
+  tags: safeTags.optional(), // Max 20 tags, each max 50 chars, HTML-sanitized
+  dueDate: safeDate.optional(), // Optional due date
 });
 type TaskCreateInputType = z.infer<typeof taskCreateInputSchema>;
 
+/**
+ * Enhanced task update schema with comprehensive validation.
+ */
 const taskUpdateInputSchema = z.object({
-  id: z.string(),
-  title: z.string().optional(),
-  description: z.string().optional().nullable(),
+  id: safeUuid, // Strict UUID validation
+  title: safeString(1, 200).optional(),
+  description: safeText(5000).nullable().optional(),
   status: z.nativeEnum(TaskStatus).optional(),
   priority: z.nativeEnum(Priority).optional(),
   mode: z.nativeEnum(UserMode).optional(),
-  tags: z.array(z.string()).optional(),
-  completedAt: z.date().optional().nullable(),
+  tags: safeTags.optional(),
+  completedAt: safeDate.nullable().optional(),
+  dueDate: safeDate.nullable().optional(),
 });
 type TaskUpdateInputType = z.infer<typeof taskUpdateInputSchema>;
+
+/**
+ * Task deletion schema with strict UUID validation.
+ */
+const taskDeleteInputSchema = z.object({
+  id: safeUuid, // Strict UUID validation
+});
 
 /**
  * Task router - all endpoints require authentication.
@@ -126,9 +149,7 @@ export const taskRouter = router({
    * @throws FORBIDDEN if user doesn't own the task
    */
   delete: authedProcedure
-    .input(z.object({
-      id: z.string(),
-    }))
+    .input(taskDeleteInputSchema)
     .mutation(async ({ ctx, input }) => {
       // Verify task ownership before delete
       const existingTask = await (storage as StorageWithPrisma).prisma.task.findUnique({

@@ -3,11 +3,23 @@ import { router, authedProcedure } from '../trpc';
 import { TRPCError } from '@trpc/server';
 import { storage } from '../storage';
 import { PrismaClient } from '@prisma/client';
+// Validation utilities
+import { safeInteger, safeUuid, safeDate } from '../validation';
 
 // Extend the storage type to include Prisma client
 type StorageWithPrisma = typeof storage & {
   prisma: PrismaClient;
 };
+
+/**
+ * Mode enum validation (BUILD, FLOW, RESTORE).
+ */
+const modeEnum = z.enum(['BUILD', 'FLOW', 'RESTORE']);
+
+/**
+ * Energy level validation (0-100).
+ */
+const energyLevel = safeInteger(0, 100);
 
 /**
  * Mode router - handles focus session management (BUILD, FLOW, RESTORE modes).
@@ -24,9 +36,9 @@ export const modeRouter = router({
   startSession: authedProcedure
     .input(
       z.object({
-        mode: z.enum(['BUILD', 'FLOW', 'RESTORE']),
-        energyLevel: z.number().min(0).max(100).default(50),
-        taskId: z.string().optional(),
+        mode: modeEnum,
+        energyLevel: energyLevel.default(50),
+        taskId: safeUuid.optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -82,9 +94,9 @@ export const modeRouter = router({
   endSession: authedProcedure
     .input(
       z.object({
-        sessionId: z.string(),
-        endTime: z.date().optional(),
-        energyLevel: z.number().min(0).max(100).optional(),
+        sessionId: safeUuid,
+        endTime: safeDate.optional(),
+        energyLevel: energyLevel.optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
