@@ -74,28 +74,58 @@ model GroundingSource {
 }
 
 model Task {
-  id               String         @id @default(cuid())
+  id               String     @id @default(cuid())
   title            String
-  createdAt        DateTime       @default(now())
-  updatedAt        DateTime       @updatedAt
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
   userId           String
-  completedAt      DateTime?      @db.Timestamptz(6)
+  completedAt      DateTime?  @db.Timestamptz(6)
   description      String?
-  dueAt            DateTime?      @db.Timestamptz(6)
+  dueDate          DateTime?  @db.Timestamptz(6) // Renamed from dueAt for consistency
   estimatedMinutes Int?
-  timeSpentMinutes Int?           @default(0)
-  status           TaskStatus     @default(TODO)
-  priority         Priority       @default(MEDIUM)
-  mode             UserMode       @default(BUILD)
-  tags             String[]       @default([])
-  sessions         FocusSession[] @relation("TaskSessions")
-  messages         Message[]      @relation("TaskMessages")
-  user             User           @relation(fields: [userId], references: [id])
-  userStates       UserState[]
+  timeSpentMinutes Int?       @default(0)
+  status           TaskStatus @default(TODO)
+  priority         Priority   @default(MEDIUM)
+  mode             UserMode   @default(BUILD)
+  tags             String[]   @default([])
+
+  // AI-generated task tracking
+  isAiGenerated Boolean @default(false)
+
+  // Subtasks stored as JSON array
+  // Format: [{ id: string, title: string, done: boolean }]
+  subtasks Json?
+
+  // Additional metadata fields
+  metadata      Json? // Flexible metadata storage
+  content       String? // Rich content/notes
+  frictionNotes String? // Notes about friction points
+  archived      Boolean @default(false)
+
+  // External integrations
+  externalId       String? // ID from external system
+  externalSource   String? // Source system name
+  externalMetadata Json? // Metadata from external system
+
+  // Time and energy tracking
+  energyLevel Int? // Required energy level (0-100)
+  timeOfDay   String? // Preferred time of day
+
+  // Recurring tasks
+  isRecurring    Boolean @default(false)
+  recurrenceRule String? // iCal RRULE format
+
+  // Relations
+  sessions   FocusSession[] @relation("TaskSessions")
+  messages   Message[]      @relation("TaskMessages")
+  user       User           @relation(fields: [userId], references: [id])
+  userStates UserState[]
 
   @@index([userId, status])
   @@index([userId, priority])
-  @@index([userId, dueAt])
+  @@index([userId, dueDate]) // Updated index name
+  @@index([userId, archived])
+  @@index([isAiGenerated])
 }
 
 model FocusSession {
