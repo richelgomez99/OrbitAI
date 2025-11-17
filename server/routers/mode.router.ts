@@ -1,9 +1,27 @@
 import { z } from 'zod';
-import { router, publicProcedure, protectedProcedure } from '../trpc';
-import { Prisma } from '@prisma/client';
+import { router, authedProcedure } from '../trpc';
+import { TRPCError } from '@trpc/server';
+import { storage } from '../storage';
+import { PrismaClient } from '@prisma/client';
 
+// Extend the storage type to include Prisma client
+type StorageWithPrisma = typeof storage & {
+  prisma: PrismaClient;
+};
+
+/**
+ * Mode router - handles focus session management (BUILD, FLOW, RESTORE modes).
+ * All endpoints require authentication.
+ */
 export const modeRouter = router({
-  startSession: protectedProcedure
+  /**
+   * Start a new focus session.
+   *
+   * @requires Authentication
+   * @param input - Mode type, energy level, and optional task ID
+   * @returns Created focus session
+   */
+  startSession: authedProcedure
     .input(
       z.object({
         mode: z.enum(['BUILD', 'FLOW', 'RESTORE']),
@@ -12,13 +30,13 @@ export const modeRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const { prisma, session } = ctx;
+      const prisma = (storage as StorageWithPrisma).prisma;
       const { mode, energyLevel, taskId } = input;
 
-      // End any active sessions
+      // End any active sessions for this user
       await prisma.focusSession.updateMany({
         where: {
-          userId: session.user.id,
+          userId: ctx.userId,
           endTime: null,
         },
         data: {
@@ -29,7 +47,7 @@ export const modeRouter = router({
       // Create new session
       const newSession = await prisma.focusSession.create({
         data: {
-          userId: session.user.id,
+          userId: ctx.userId,
           mode,
           startTime: new Date(),
           energyStart: energyLevel,
@@ -46,14 +64,22 @@ export const modeRouter = router({
 
       // Update user's last active time
       await prisma.user.update({
-        where: { id: session.user.id },
+        where: { id: ctx.userId },
         data: { lastActive: new Date() },
       });
 
       return newSession;
     }),
 
-  endSession: protectedProcedure
+  /**
+   * End a focus session.
+   *
+   * @requires Authentication
+   * @requires Ownership - User must own the session
+   * @param input - Session ID, end time, and final energy level
+   * @returns Updated focus session
+   */
+  endSession: authedProcedure
     .input(
       z.object({
         sessionId: z.string(),
@@ -62,13 +88,32 @@ export const modeRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const { prisma, session } = ctx;
+      const prisma = (storage as StorageWithPrisma).prisma;
       const { sessionId, endTime = new Date(), energyLevel } = input;
+
+      // Verify session ownership
+      const session = await prisma.focusSession.findUnique({
+        where: { id: sessionId },
+        select: { userId: true },
+      });
+
+      if (!session) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Focus session not found',
+        });
+      }
+
+      if (session.userId !== ctx.userId) {
+        throw new TRPCError({
+          code: 'FORBIDDEN',
+          message: 'You do not have permission to end this session',
+        });
+      }
 
       const updatedSession = await prisma.focusSession.update({
         where: {
           id: sessionId,
-          userId: session.user.id,
         },
         data: {
           endTime,
@@ -82,13 +127,19 @@ export const modeRouter = router({
       return updatedSession;
     }),
 
-  getCurrentSession: protectedProcedure
+  /**
+   * Get the current active focus session for the authenticated user.
+   *
+   * @requires Authentication
+   * @returns Active focus session or null
+   */
+  getCurrentSession: authedProcedure
     .query(async ({ ctx }) => {
-      const { prisma, session } = ctx;
+      const prisma = (storage as StorageWithPrisma).prisma;
 
       const activeSession = await prisma.focusSession.findFirst({
         where: {
-          userId: session.user.id,
+          userId: ctx.userId,
           endTime: null,
         },
         orderBy: {
@@ -102,53 +153,59 @@ export const modeRouter = router({
       return activeSession;
     }),
 
-  getModeStats: protectedProcedure
+  /**
+   * Get mode statistics for the authenticated user.
+   *
+   * @requires Authentication
+   * @returns Mode durations and current streak
+   */
+  getModeStats: authedProcedure
     .query(async ({ ctx }) => {
-      const { prisma, session } = ctx;
+      const prisma = (storage as StorageWithPrisma).prisma;
 
       // Get time spent in each mode
       const modeDurations = await prisma.$queryRaw<Array<{ mode: string; duration: number }>>`
-        SELECT 
+        SELECT
           "mode",
           SUM(EXTRACT(EPOCH FROM (COALESCE("endTime", NOW()) - "startTime")) / 60) as duration
         FROM "FocusSession"
-        WHERE "userId" = ${session.user.id}
+        WHERE "userId" = ${ctx.userId}
         GROUP BY "mode"
       `;
 
       // Get current streak
       const streak = await prisma.$queryRaw<Array<{ current_streak: number }>>`
         WITH daily_activity AS (
-          SELECT 
+          SELECT
             DATE("lastActive") as activity_date
           FROM "User"
-          WHERE "id" = ${session.user.id}
-          
+          WHERE "id" = ${ctx.userId}
+
           UNION
-          
-          SELECT 
+
+          SELECT
             DATE("createdAt") as activity_date
           FROM "Reflection"
-          WHERE "userId" = ${session.user.id}
-          
+          WHERE "userId" = ${ctx.userId}
+
           UNION
-          
-          SELECT 
+
+          SELECT
             DATE("startTime") as activity_date
           FROM "FocusSession"
-          WHERE "userId" = ${session.user.id}
+          WHERE "userId" = ${ctx.userId}
         ),
         streaks AS (
-          SELECT 
+          SELECT
             activity_date,
             activity_date - ROW_NUMBER() OVER (ORDER BY activity_date) * INTERVAL '1 day' as grp
           FROM daily_activity
           GROUP BY activity_date
         )
-        SELECT 
+        SELECT
           COUNT(*) as current_streak
         FROM (
-          SELECT 
+          SELECT
             grp,
             MIN(activity_date) as start_date,
             MAX(activity_date) as end_date,

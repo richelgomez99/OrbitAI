@@ -1,37 +1,52 @@
 import { router } from './trpc'; // Import the router factory
 import { taskRouter } from './routers/task.router'; // Import your specific router(s)
+import { modeRouter } from './routers/mode.router'; // Import mode router
 import { createExpressMiddleware } from '@trpc/server/adapters/express';
 import type { Request, Response } from 'express'; // For context typing
+import type { Context } from './trpc';
 
-// Combine all your routers into the main application router
+/**
+ * Main application router.
+ * Combines all feature routers into a single API surface.
+ */
 export const appRouter = router({
   task: taskRouter,
-  // other routers can be added here like:
+  mode: modeRouter,
+  // other routers can be added here:
   // reflection: reflectionRouter,
 });
 
-// Export type signature of outputted router for frontend inference
+/**
+ * Export type signature of router for frontend type inference.
+ * This enables end-to-end type safety from server to client.
+ */
 export type AppRouter = typeof appRouter;
 
-// Define a context type based on Express Request & Response
+/**
+ * Options for creating Express context.
+ */
 export interface CreateExpressContextOptions {
   req: Request;
   res: Response;
-  // You can add other properties like a user object if you have auth
-  // user?: { id: string; name: string; }; 
 }
 
-// Function to create tRPC Express middleware
+/**
+ * Create tRPC Express middleware with proper context.
+ *
+ * The context created here is passed to all tRPC procedures.
+ * Authentication middleware (authedProcedure) will add user/userId to this context.
+ */
 export function createTRPCExpressMiddleware() {
   return createExpressMiddleware({
     router: appRouter,
-    createContext: ({ req, res }: CreateExpressContextOptions) => {
-      // This is where you'd typically handle user sessions, database connections, etc., from req object.
-      // For now, just returning req and res, or an empty object if preferred.
-      return { req, res }; 
+    createContext: ({ req, res }: CreateExpressContextOptions): Context => {
+      // Return req and res - authedProcedure will add user/userId when needed
+      return { req, res };
     },
     onError: ({ path, error }) => {
-      console.error(`❌ tRPC failed on ${path ?? '<no-path>'}: ${error.message}`);
+      // Log errors for debugging (production should use proper logger)
+      // eslint-disable-next-line no-console
+      console.error(`tRPC Error on ${path ?? '<no-path>'}:`, error.message);
     },
   });
 }
