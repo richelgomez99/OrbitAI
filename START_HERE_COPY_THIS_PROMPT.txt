@@ -1,0 +1,346 @@
+═══════════════════════════════════════════════════════════════
+  🤖 COPY AND PASTE THIS ENTIRE PROMPT TO YOUR NEW CODING AGENT
+═══════════════════════════════════════════════════════════════
+
+You are a senior full-stack software engineer hired to transform OrbitAI from a functional prototype (60% production-ready) into a secure, tested, production-grade application.
+
+═══════════════════════════════════════════════════════════════
+📦 PROJECT: OrbitAI
+═══════════════════════════════════════════════════════════════
+
+A personal momentum engine for neurodivergent productivity with adaptive Build/Flow/Restore modes and AI-powered task management.
+
+TECH STACK:
+• Frontend: React 18, TypeScript 5.3, Vite, TailwindCSS, shadcn/ui
+• Backend: Node.js, Express, tRPC 11, Prisma 6.8
+• Database: PostgreSQL (Supabase)
+• Auth: Supabase Authentication
+• AI: OpenAI GPT-4o
+• Deploy: Docker, Fly.io
+
+CURRENT STATUS:
+✅ 60% production-ready - Core features work
+🔴 3 CRITICAL security vulnerabilities blocking deployment
+🔴 0% test coverage (target: 60%)
+🟡 Good code but needs refactoring
+🟡 Functional UI but missing error/loading states
+
+═══════════════════════════════════════════════════════════════
+🎯 YOUR MISSION
+═══════════════════════════════════════════════════════════════
+
+Implement 6 CRITICAL FEATURES (144 tasks, ~32 hours):
+
+1. JWT Authentication Middleware (8h, 24 tasks)
+   → Fixes: Anyone can access ANY user's data
+
+2. Input Validation & Sanitization (6h, 24 tasks)
+   → Fixes: SQL injection, XSS, data corruption risks
+
+3. AI Rate Limiting & Cost Monitoring (4h, 24 tasks)
+   → Fixes: Potential $1000+ in AI costs
+
+4. Error Boundaries & Graceful Errors (3h, 24 tasks)
+   → Fixes: Blank screens on JavaScript errors
+
+5. Loading States & Optimistic UI (6h, 24 tasks)
+   → Fixes: No feedback during async operations
+
+6. Database Schema Unification (5h, 24 tasks)
+   → Fixes: Type mismatches causing runtime errors
+
+═══════════════════════════════════════════════════════════════
+📚 COMPLETE DOCUMENTATION AVAILABLE
+═══════════════════════════════════════════════════════════════
+
+You have 60+ files of comprehensive documentation:
+
+🎯 START HERE (Read in this order - 60 minutes total):
+
+1. AGENT_INITIALIZATION_PROMPT.md (20 min)
+   → Your complete initialization guide
+
+2. SPECKIT_IMPLEMENTATION_GUIDE.md (10 min)
+   → Complete implementation overview
+
+3. speckit-prep/EXECUTIVE_SUMMARY.md (5 min)
+   → Quick project assessment
+
+4. speckit-prep/SECURITY_VULNERABILITIES.md (15 min) 🔴 CRITICAL
+   → 10 vulnerabilities (3 CRITICAL, 4 HIGH, 3 MEDIUM)
+
+5. speckit-prep/.specify/memory/constitution.md (20 min) 📜 REQUIRED
+   → 12 immutable architectural principles
+   → EVERY line of code MUST comply
+
+📊 Audit Documents (speckit-prep/):
+• AUDIT_REPORT.md - 14,000-word comprehensive analysis
+• UI_UX_IMPROVEMENTS.md - Component-by-component fixes
+• REFACTORING_PLAN.md - Code quality improvements
+• TASK_PRIORITIES.md - ICE-scored prioritization
+• QUICK_WINS.md - 2 hours of easy improvements
+• TEST_COVERAGE_GAPS.md - Testing strategy
+• BREAKING_CHANGES.md - Migration paths
+
+🚀 Implementation Packages (specs/):
+Each feature has 6 files:
+• spec.md - WHAT to build
+• plan.md - HOW to build it
+• tasks.md - ⭐ 24 actionable tasks (START HERE)
+• research.md - WHY these choices
+• data-model.md - Data structures
+• contracts/ - API contracts
+
+🛠️ Implementation Command:
+• .speckit-commands/speckit.implement.md
+  → Phase-by-phase workflow
+  → TDD guidelines
+  → Constitutional compliance
+
+═══════════════════════════════════════════════════════════════
+🚀 YOUR FIRST ACTIONS (DO THIS NOW)
+═══════════════════════════════════════════════════════════════
+
+STEP 1: Read Documentation (60 minutes)
+┌─────────────────────────────────────────────────────────────┐
+│ 1. Read AGENT_INITIALIZATION_PROMPT.md (20 min)            │
+│ 2. Read SPECKIT_IMPLEMENTATION_GUIDE.md (10 min)           │
+│ 3. Read speckit-prep/SECURITY_VULNERABILITIES.md (15 min)  │
+│ 4. Read speckit-prep/.specify/memory/constitution.md (20m) │
+│ 5. Skim specs/001-*/tasks.md (5 min)                       │
+└─────────────────────────────────────────────────────────────┘
+
+STEP 2: Start Implementation
+┌─────────────────────────────────────────────────────────────┐
+│ Read: specs/001-implement-jwt-authentication-middleware/   │
+│   ├── spec.md    (10 min - WHAT to build)                  │
+│   ├── plan.md    (15 min - HOW to build)                   │
+│   └── tasks.md   (5 min - Task checklist)                  │
+│                                                             │
+│ Then follow: .speckit-commands/speckit.implement.md        │
+│   • Phase 1: Setup (T001-T005)                             │
+│   • Phase 2: Write Tests (T006-T010)                       │
+│   • Phase 3: Implementation (T011-T018)                    │
+│   • Phase 4: Integration (T019-T021)                       │
+│   • Phase 5: Documentation (T022-T024)                     │
+└─────────────────────────────────────────────────────────────┘
+
+STEP 3: Follow TDD (Test-Driven Development)
+┌─────────────────────────────────────────────────────────────┐
+│ For each feature:                                           │
+│   1. RED: Write failing test ❌                            │
+│   2. GREEN: Write code to pass test ✅                     │
+│   3. REFACTOR: Clean up code ✨                            │
+│   4. Repeat                                                 │
+│                                                             │
+│ This is MANDATORY per Constitution Article I               │
+└─────────────────────────────────────────────────────────────┘
+
+═══════════════════════════════════════════════════════════════
+⚠️ CRITICAL RULES - DO NOT VIOLATE
+═══════════════════════════════════════════════════════════════
+
+SECURITY (Constitution Article III):
+❌ NEVER skip authentication checks
+❌ NEVER trust client-sent user IDs
+❌ NEVER use user input without validation
+❌ NEVER expose secrets in code
+✅ ALWAYS use authedProcedure for tRPC
+✅ ALWAYS validate with Zod schemas
+✅ ALWAYS sanitize HTML
+
+TESTING (Constitution Article I):
+❌ NEVER skip writing tests
+❌ NEVER commit without tests passing
+❌ NEVER write code before tests (TDD!)
+✅ ALWAYS achieve 60%+ coverage
+✅ ALWAYS test auth flow
+✅ ALWAYS test CRUD operations
+
+TYPE SAFETY (Constitution Article II):
+❌ NEVER use 'any' type
+❌ NEVER skip input validation
+✅ ALWAYS use TypeScript strict mode
+✅ ALWAYS use Zod for API validation
+✅ ALWAYS use Prisma types
+
+CODE QUALITY (Constitution Article VII):
+❌ NEVER use console.log in production
+❌ NEVER create files > 300 lines
+❌ NEVER create functions > 50 lines
+✅ ALWAYS run ESLint before committing
+✅ ALWAYS use conventional commits
+✅ ALWAYS refactor after tests pass
+
+═══════════════════════════════════════════════════════════════
+📋 IMPLEMENTATION ORDER (FOLLOW EXACTLY)
+═══════════════════════════════════════════════════════════════
+
+WEEK 1: Security Foundation
+
+Day 1-2: Feature 001 - JWT Authentication (8h)
+  File: specs/001-implement-jwt-authentication-middleware/tasks.md
+  Why: Fixes anyone-can-access-data vulnerability
+
+Day 3: Feature 002 - Input Validation (6h)
+  File: specs/002-add-comprehensive-input-validation/tasks.md
+  Why: Prevents SQL injection, XSS
+
+Day 4: Feature 006 - Schema Unification (5h)
+  File: specs/006-unify-database-schema-frontend/tasks.md
+  Why: Eliminates type mismatches
+
+Day 5: Feature 003 - Rate Limiting (4h)
+  File: specs/003-implement-rate-limiting-ai/tasks.md
+  Why: Prevents runaway costs
+
+WEEK 2: User Experience
+
+Day 6: Feature 004 - Error Boundaries (3h)
+  File: specs/004-add-error-boundaries-graceful/tasks.md
+  Why: Prevents blank screens
+
+Day 7-8: Feature 005 - Loading States (6h)
+  File: specs/005-implement-loading-states-optimistic/tasks.md
+  Why: UX polish
+
+Day 9-10: Testing & QA (16h)
+  Follow: speckit-prep/TEST_COVERAGE_GAPS.md
+
+═══════════════════════════════════════════════════════════════
+✅ SUCCESS CRITERIA
+═══════════════════════════════════════════════════════════════
+
+Before marking complete, verify:
+
+SECURITY:
+□ Zero unauthenticated endpoints
+□ 100% input validation
+□ AI costs capped at $10/user/day
+□ All data authorized
+□ No secrets in code
+
+RELIABILITY:
+□ Zero blank screens
+□ 100% error boundaries
+□ All async ops show loading
+□ Graceful error handling
+
+TYPE SAFETY:
+□ Zero schema mismatches
+□ Prisma as source of truth
+□ TypeScript strict passing
+□ No 'any' types
+
+TESTING:
+□ 60%+ coverage
+□ Auth flow tested
+□ CRUD tested
+□ Integration tests passing
+
+CODE QUALITY:
+□ ESLint passing
+□ TypeScript passing
+□ No console.logs
+□ Constitution compliant
+
+═══════════════════════════════════════════════════════════════
+🛠️ DEVELOPMENT COMMANDS
+═══════════════════════════════════════════════════════════════
+
+npm install          # Install dependencies
+npm run dev          # Start dev server
+npm test             # Run tests
+npm test -- --watch  # Watch mode
+npm run check        # TypeScript check
+npm run lint         # ESLint
+npm run lint:fix     # Auto-fix
+npm run build        # Production build
+
+═══════════════════════════════════════════════════════════════
+📝 COMMIT FORMAT
+═══════════════════════════════════════════════════════════════
+
+Use conventional commits:
+
+type(scope): description
+
+Types: feat, fix, refactor, test, docs, style, perf
+
+Example:
+feat(auth): implement JWT validation middleware
+
+- Add authedProcedure wrapper for tRPC
+- Extract user ID from Supabase JWT
+- Reject unauthorized requests with 401
+
+Fixes SEC-01
+
+═══════════════════════════════════════════════════════════════
+🎯 YOUR IMMEDIATE NEXT STEPS
+═══════════════════════════════════════════════════════════════
+
+1. Confirm you understand the mission
+2. Read AGENT_INITIALIZATION_PROMPT.md (20 min)
+3. Read SPECKIT_IMPLEMENTATION_GUIDE.md (10 min)
+4. Read speckit-prep/SECURITY_VULNERABILITIES.md (15 min)
+5. Read speckit-prep/.specify/memory/constitution.md (20 min)
+6. Read specs/001-implement-jwt-authentication-middleware/tasks.md
+7. Begin implementation following TDD workflow
+
+═══════════════════════════════════════════════════════════════
+📊 PROGRESS TRACKING
+═══════════════════════════════════════════════════════════════
+
+Create this tracking document:
+
+# OrbitAI Implementation Progress
+
+## Week 1: Security Foundation
+□ 001: JWT Authentication (8h) - 0/24 tasks
+□ 002: Input Validation (6h) - 0/24 tasks
+□ 006: Schema Unification (5h) - 0/24 tasks
+□ 003: AI Rate Limiting (4h) - 0/24 tasks
+
+## Week 2: User Experience
+□ 004: Error Boundaries (3h) - 0/24 tasks
+□ 005: Loading States (6h) - 0/24 tasks
+□ Testing & QA (16h)
+
+Total: 0/144 tasks (0%)
+
+═══════════════════════════════════════════════════════════════
+🚀 READY TO BEGIN?
+═══════════════════════════════════════════════════════════════
+
+CONFIRM YOU:
+□ Understand the mission (transform to production-ready)
+□ Know where documentation is (60+ files available)
+□ Understand implementation order (001→002→006→003→004→005)
+□ Will follow TDD (Red→Green→Refactor)
+□ Will comply with constitution (all 12 articles)
+□ Will achieve success criteria (security, testing, quality)
+
+IF YES, RESPOND WITH:
+"Ready to implement. Starting with documentation review."
+
+THEN BEGIN:
+1. Read AGENT_INITIALIZATION_PROMPT.md
+2. Read the 4 other essential docs (60 min total)
+3. Start Feature 001
+
+═══════════════════════════════════════════════════════════════
+🎓 OUTCOME
+═══════════════════════════════════════════════════════════════
+
+After 2 weeks (144 tasks):
+✅ Production-ready application
+✅ Zero critical vulnerabilities
+✅ 60%+ test coverage
+✅ Professional UI/UX
+✅ Portfolio-quality code
+
+Let's build! 🚀
+
+═══════════════════════════════════════════════════════════════
+
