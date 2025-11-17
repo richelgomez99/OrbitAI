@@ -16,3 +16,10 @@ vite.config.ts.*
 
 # Vite build output
 dist-ssr
+
+# IDE files
+.cursor/
+.cursorindexingignore
+.vscode/
+.idea/
+.specstory/

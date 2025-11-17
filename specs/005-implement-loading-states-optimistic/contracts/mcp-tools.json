@@ -1,0 +1,28 @@
+{
+  "version": "1.0.0",
+  "tools": [
+    {
+      "name": "005_implement_loading_states_optimistic_tool",
+      "description": "Tool for Implement loading states and optimistic UI updates for all async operations. Every button, form subm",
+      "input_schema": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "result": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "success"
+        ]
+      }
+    }
+  ]
+}

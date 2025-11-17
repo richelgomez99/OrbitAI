@@ -1,0 +1,28 @@
+{
+  "version": "1.0.0",
+  "tools": [
+    {
+      "name": "001_implement_jwt_authentication_middleware_tool",
+      "description": "Tool for Implement JWT authentication middleware for tRPC procedures with user authorization. All tRPC mutati",
+      "input_schema": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "result": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "success"
+        ]
+      }
+    }
+  ]
+}

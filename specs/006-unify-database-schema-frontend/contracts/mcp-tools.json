@@ -1,0 +1,28 @@
+{
+  "version": "1.0.0",
+  "tools": [
+    {
+      "name": "006_unify_database_schema_frontend_tool",
+      "description": "Tool for Unify database schema and frontend type system to eliminate type mismatches. The Prisma database sch",
+      "input_schema": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "result": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "success"
+        ]
+      }
+    }
+  ]
+}

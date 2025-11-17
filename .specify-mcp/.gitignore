@@ -1,0 +1,4 @@
+# Spec-kit MCP local files
+*.log
+*.cache
+.DS_Store

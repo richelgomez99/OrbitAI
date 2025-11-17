@@ -1,0 +1,28 @@
+{
+  "version": "1.0.0",
+  "tools": [
+    {
+      "name": "002_add_comprehensive_input_validation_tool",
+      "description": "Tool for Add comprehensive input validation and sanitization for all API endpoints. Every tRPC procedure and",
+      "input_schema": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "result": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "success"
+        ]
+      }
+    }
+  ]
+}

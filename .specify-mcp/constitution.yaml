@@ -1,0 +1,31 @@
+project:
+  name: OrbitAI
+  type: web
+  description: Specification-driven development for OrbitAI
+  version: 0.1.0
+workflow:
+  branch_prefix: feature
+  auto_commit: false
+  specs_directory: specs
+technical:
+  language: Python 3.11
+  framework: FastAPI
+  testing: pytest
+  build_tool: pip
+principles:
+- Test-driven development (TDD)
+- Clear documentation for all features
+- Semantic versioning for releases
+- Code review for all changes
+quality:
+  test_coverage_minimum: 80
+  documentation_required: true
+  linting_enabled: true
+  type_checking: true
+team:
+  lead: TBD
+  reviewers: []
+metadata:
+  version: 1.0.0
+  created: '2025-11-17T11:51:14.104240'
+  last_modified: '2025-11-17T11:51:14.104240'

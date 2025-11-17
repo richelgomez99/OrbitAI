@@ -1,0 +1,28 @@
+{
+  "version": "1.0.0",
+  "tools": [
+    {
+      "name": "004_add_error_boundaries_graceful_tool",
+      "description": "Tool for Add error boundaries and graceful error handling across the application. The application must never",
+      "input_schema": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "result": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "success"
+        ]
+      }
+    }
+  ]
+}

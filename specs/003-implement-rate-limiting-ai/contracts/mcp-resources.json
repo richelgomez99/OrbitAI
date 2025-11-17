@@ -1,0 +1,10 @@
+{
+  "version": "1.0.0",
+  "resources": [
+    {
+      "name": "templates",
+      "type": "template",
+      "description": "Templates for the feature"
+    }
+  ]
+}
